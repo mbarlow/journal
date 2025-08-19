@@ -11,6 +11,10 @@ class CalendarNavigator {
         this.selectedShade = 1;
         this.mediaRecorder = null;
         this.audioChunks = [];
+        this.clockInterval = null;
+        this.isDragging = false;
+        this.draggedNote = null;
+        this.dragOffset = { x: 0, y: 0 };
 
         this.container = document.getElementById("container");
         this.headerTitle = document.getElementById("headerTitle");
@@ -212,6 +216,11 @@ class CalendarNavigator {
     }
 
     render() {
+        // Stop clock when leaving day view
+        if (this.level !== "day") {
+            this.stopRealtimeClock();
+        }
+        
         switch (this.level) {
             case "day":
                 this.renderDay();
@@ -257,11 +266,15 @@ class CalendarNavigator {
 
         this.pageContent.innerHTML = `
         <div class="day-view">
+            <div class="realtime-clock" id="realtimeClock"></div>
             <div class="day-number">${this.currentDate.getDate()}</div>
             <div class="day-name">${dayNames[this.currentDate.getDay()]}</div>
             <div class="month-year">${monthNames[this.currentDate.getMonth()]} ${this.currentDate.getFullYear()}</div>
         </div>
     `;
+        
+        // Start the clock after rendering
+        this.startRealtimeClock();
         
         // Render notes for this day
         this.renderNotes();
@@ -668,7 +681,12 @@ class CalendarNavigator {
                     <div class="sticky-note-title">${note.title}</div>
                     <div class="sticky-note-preview">${note.content}</div>
                 `;
-                noteEl.addEventListener("click", () => this.showNoteDetail(note));
+                noteEl.addEventListener("click", (e) => {
+                    if (!this.isDragging) {
+                        this.showNoteDetail(note);
+                    }
+                });
+                this.setupNoteDragHandlers(noteEl, note);
                 this.container.appendChild(noteEl);
             } else if (note.type === "image") {
                 const noteEl = document.createElement("div");
@@ -676,7 +694,12 @@ class CalendarNavigator {
                 noteEl.style.left = `${note.x}px`;
                 noteEl.style.top = `${note.y}px`;
                 noteEl.innerHTML = `<img src="${note.content}" alt="Photo">`;
-                noteEl.addEventListener("click", () => this.showNoteDetail(note));
+                noteEl.addEventListener("click", (e) => {
+                    if (!this.isDragging) {
+                        this.showNoteDetail(note);
+                    }
+                });
+                this.setupNoteDragHandlers(noteEl, note);
                 this.container.appendChild(noteEl);
             } else if (note.type === "audio") {
                 const noteEl = document.createElement("div");
@@ -687,7 +710,12 @@ class CalendarNavigator {
                     <div class="audio-note-icon">🎵</div>
                     <div class="audio-note-title">${note.title}</div>
                 `;
-                noteEl.addEventListener("click", () => this.showNoteDetail(note));
+                noteEl.addEventListener("click", (e) => {
+                    if (!this.isDragging) {
+                        this.showNoteDetail(note);
+                    }
+                });
+                this.setupNoteDragHandlers(noteEl, note);
                 this.container.appendChild(noteEl);
             } else if (note.type === "verse") {
                 const noteEl = document.createElement("div");
@@ -697,10 +725,13 @@ class CalendarNavigator {
                 noteEl.innerHTML = `
                     <div class="verse-content">${note.title}</div>
                 `;
-                noteEl.addEventListener("click", () => {
-                    this.markVerseAsRead(note);
-                    this.showNoteDetail(note);
+                noteEl.addEventListener("click", (e) => {
+                    if (!this.isDragging) {
+                        this.markVerseAsRead(note);
+                        this.showNoteDetail(note);
+                    }
                 });
+                this.setupNoteDragHandlers(noteEl, note);
                 this.container.appendChild(noteEl);
             }
         });
@@ -880,6 +911,201 @@ class CalendarNavigator {
             verseEl.classList.remove("unread");
             verseEl.classList.add("read");
         }
+    }
+    
+    startRealtimeClock() {
+        // Clear any existing interval
+        if (this.clockInterval) {
+            clearInterval(this.clockInterval);
+        }
+        
+        const updateClock = () => {
+            const clockElement = document.getElementById("realtimeClock");
+            if (clockElement && this.level === "day") {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit',
+                    hour12: false 
+                });
+                clockElement.textContent = timeString;
+            }
+        };
+        
+        // Update immediately
+        updateClock();
+        
+        // Update every second
+        this.clockInterval = setInterval(updateClock, 1000);
+    }
+    
+    stopRealtimeClock() {
+        if (this.clockInterval) {
+            clearInterval(this.clockInterval);
+            this.clockInterval = null;
+        }
+    }
+    
+    setupNoteDragHandlers(noteEl, note) {
+        let longPressTimer = null;
+        let startX, startY;
+        let startTime;
+        
+        noteEl.addEventListener("touchstart", (e) => {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            startTime = Date.now();
+            
+            // Calculate offset for smooth dragging
+            const rect = noteEl.getBoundingClientRect();
+            this.dragOffset.x = startX - rect.left;
+            this.dragOffset.y = startY - rect.top;
+            
+            longPressTimer = setTimeout(() => {
+                this.startNoteDrag(noteEl, note, startX, startY);
+            }, 500);
+        });
+        
+        noteEl.addEventListener("touchmove", (e) => {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            
+            if (this.isDragging && this.draggedNote === note) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const newX = touch.clientX - this.dragOffset.x;
+                const newY = touch.clientY - this.dragOffset.y;
+                
+                noteEl.style.left = `${newX}px`;
+                noteEl.style.top = `${newY}px`;
+                
+                // Check if over recycle bin
+                this.checkRecycleBinHover(touch.clientX, touch.clientY);
+            }
+        });
+        
+        noteEl.addEventListener("touchend", (e) => {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            
+            if (this.isDragging && this.draggedNote === note) {
+                const touch = e.changedTouches[0];
+                this.endNoteDrag(noteEl, note, touch.clientX, touch.clientY);
+            }
+        });
+    }
+    
+    startNoteDrag(noteEl, note, x, y) {
+        this.isDragging = true;
+        this.draggedNote = note;
+        noteEl.classList.add("dragging");
+        
+        // Show recycle bin
+        this.showRecycleBin();
+        
+        // Prevent other touch events during drag
+        document.body.style.touchAction = "none";
+    }
+    
+    endNoteDrag(noteEl, note, x, y) {
+        this.isDragging = false;
+        this.draggedNote = null;
+        noteEl.classList.remove("dragging");
+        
+        // Check if dropped on recycle bin
+        if (this.isOverRecycleBin(x, y)) {
+            this.deleteNote(note);
+        } else {
+            // Update note position
+            const newX = parseInt(noteEl.style.left);
+            const newY = parseInt(noteEl.style.top);
+            this.updateNotePosition(note, newX, newY);
+        }
+        
+        // Hide recycle bin
+        this.hideRecycleBin();
+        
+        // Re-enable touch events
+        document.body.style.touchAction = "auto";
+    }
+    
+    showRecycleBin() {
+        let recycleBin = document.getElementById("recycleBin");
+        if (!recycleBin) {
+            recycleBin = document.createElement("div");
+            recycleBin.id = "recycleBin";
+            recycleBin.className = "recycle-bin";
+            recycleBin.innerHTML = `
+                <div class="recycle-bin-icon">🗑️</div>
+                <div class="recycle-bin-text">Drop to delete</div>
+            `;
+            document.body.appendChild(recycleBin);
+        }
+        recycleBin.classList.add("visible");
+    }
+    
+    hideRecycleBin() {
+        const recycleBin = document.getElementById("recycleBin");
+        if (recycleBin) {
+            recycleBin.classList.remove("visible", "hover");
+        }
+    }
+    
+    checkRecycleBinHover(x, y) {
+        const recycleBin = document.getElementById("recycleBin");
+        if (recycleBin && this.isOverRecycleBin(x, y)) {
+            recycleBin.classList.add("hover");
+        } else if (recycleBin) {
+            recycleBin.classList.remove("hover");
+        }
+    }
+    
+    isOverRecycleBin(x, y) {
+        const recycleBin = document.getElementById("recycleBin");
+        if (!recycleBin) return false;
+        
+        const rect = recycleBin.getBoundingClientRect();
+        return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+    }
+    
+    updateNotePosition(note, x, y) {
+        // Update note object
+        note.x = x;
+        note.y = y;
+        
+        // Update in IndexedDB
+        if (this.db) {
+            const transaction = this.db.transaction(["notes"], "readwrite");
+            const store = transaction.objectStore("notes");
+            store.put(note);
+        }
+    }
+    
+    deleteNote(note) {
+        const dateKey = this.getDateKey(this.currentDate);
+        const dayNotes = this.notes.get(dateKey);
+        
+        if (dayNotes) {
+            const index = dayNotes.findIndex(n => n.id === note.id);
+            if (index !== -1) {
+                dayNotes.splice(index, 1);
+            }
+        }
+        
+        // Delete from IndexedDB
+        if (this.db) {
+            const transaction = this.db.transaction(["notes"], "readwrite");
+            const store = transaction.objectStore("notes");
+            store.delete(note.id);
+        }
+        
+        // Re-render notes
+        this.renderNotes();
     }
 }
 

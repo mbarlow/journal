@@ -24,6 +24,7 @@ class CalendarNavigator {
         this.setupFullscreen();
         this.setupIndexedDB();
         this.setupChatInput();
+        this.setupKeyboardHandling();
         this.render();
     }
 
@@ -221,6 +222,9 @@ class CalendarNavigator {
             this.stopRealtimeClock();
         }
         
+        // Always call renderNotes to clear notes when not in day view
+        this.renderNotes();
+        
         switch (this.level) {
             case "day":
                 this.renderDay();
@@ -275,9 +279,6 @@ class CalendarNavigator {
         
         // Start the clock after rendering
         this.startRealtimeClock();
-        
-        // Render notes for this day
-        this.renderNotes();
     }
 
     renderWeek() {
@@ -481,11 +482,30 @@ class CalendarNavigator {
                     <div class="shade-option" data-shade="5"></div>
                 </div>
                 <div class="chat-input-row">
-                    <textarea class="chat-input" placeholder="Write a note..." rows="1"></textarea>
+                    <div class="chat-input-wrapper">
+                        <textarea class="chat-input" placeholder="Type a message..." rows="1"></textarea>
+                    </div>
                     <div class="chat-buttons">
-                        <button class="chat-button camera">📷</button>
-                        <button class="chat-button audio">🎤</button>
-                        <button class="chat-button send">→</button>
+                        <button class="chat-button camera">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                                <circle cx="12" cy="13" r="4"></circle>
+                            </svg>
+                        </button>
+                        <button class="chat-button audio">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                <line x1="12" y1="19" x2="12" y2="23"></line>
+                                <line x1="8" y1="23" x2="16" y2="23"></line>
+                            </svg>
+                        </button>
+                        <button class="chat-button send">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22,2 15,22 11,13 2,9"></polygon>
+                            </svg>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -550,6 +570,70 @@ class CalendarNavigator {
         
         this.chatOverlay = chatOverlay;
         this.audioButton = audioButton;
+    }
+    
+    setupKeyboardHandling() {
+        // Store original viewport height
+        this.originalViewportHeight = window.innerHeight;
+        
+        // Handle visual viewport changes for mobile keyboards
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', () => {
+                this.handleViewportChange();
+            });
+        } else {
+            // Fallback for browsers without Visual Viewport API
+            window.addEventListener('resize', () => {
+                this.handleViewportChange();
+            });
+        }
+        
+        // Also listen for input focus events
+        document.addEventListener('focusin', (e) => {
+            if (e.target.matches('.chat-input')) {
+                setTimeout(() => this.handleKeyboardShow(), 300);
+            }
+        });
+        
+        document.addEventListener('focusout', (e) => {
+            if (e.target.matches('.chat-input')) {
+                setTimeout(() => this.handleKeyboardHide(), 300);
+            }
+        });
+    }
+    
+    handleViewportChange() {
+        const currentHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+        const heightDiff = this.originalViewportHeight - currentHeight;
+        
+        if (heightDiff > 150) { // Keyboard is likely open
+            this.handleKeyboardShow(heightDiff);
+        } else {
+            this.handleKeyboardHide();
+        }
+    }
+    
+    handleKeyboardShow(keyboardHeight = null) {
+        const chatOverlay = this.chatOverlay;
+        if (chatOverlay && chatOverlay.classList.contains('active')) {
+            chatOverlay.classList.add('keyboard-open');
+            
+            // If we have keyboard height, adjust accordingly
+            if (keyboardHeight) {
+                chatOverlay.style.transform = `translateY(-${keyboardHeight}px)`;
+            } else {
+                // Fallback: move up by estimated keyboard height
+                chatOverlay.style.transform = 'translateY(-280px)';
+            }
+        }
+    }
+    
+    handleKeyboardHide() {
+        const chatOverlay = this.chatOverlay;
+        if (chatOverlay) {
+            chatOverlay.classList.remove('keyboard-open');
+            chatOverlay.style.transform = '';
+        }
     }
     
     openChatInput() {
@@ -918,7 +1002,11 @@ class CalendarNavigator {
             };
             
             this.mediaRecorder.start();
-            this.audioButton.textContent = "⏹";
+            this.audioButton.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <rect x="6" y="4" width="12" height="16" rx="2"></rect>
+                </svg>
+            `;
             this.audioButton.style.background = "rgba(255, 0, 0, 0.3)";
             
         } catch (error) {
@@ -980,7 +1068,14 @@ class CalendarNavigator {
     stopRecording() {
         if (this.mediaRecorder && this.mediaRecorder.state === "recording") {
             this.mediaRecorder.stop();
-            this.audioButton.textContent = "🎤";
+            this.audioButton.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
+            `;
             this.audioButton.style.background = "rgba(255, 255, 255, 0.1)";
         }
     }

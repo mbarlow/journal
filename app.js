@@ -566,11 +566,12 @@ class CalendarNavigator {
     processImage(file) {
         const reader = new FileReader();
         reader.onload = (e) => {
+            const originalDataUrl = e.target.result;
             const img = new Image();
             img.onload = () => {
-                // Create low-res version
+                // Create low-res thumbnail for display on the page
                 const canvas = document.createElement("canvas");
-                const size = 64; // Small size for storage
+                const size = 64; // Small size for thumbnail
                 canvas.width = size;
                 canvas.height = size;
                 const ctx = canvas.getContext("2d");
@@ -579,11 +580,18 @@ class CalendarNavigator {
                 ctx.imageSmoothingEnabled = false;
                 ctx.drawImage(img, 0, 0, size, size);
                 
-                const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-                this.createNote(dataUrl, "image");
+                const thumbnailUrl = canvas.toDataURL("image/jpeg", 0.7);
+                
+                // Store both thumbnail and original
+                const imageData = {
+                    thumbnail: thumbnailUrl,
+                    original: originalDataUrl
+                };
+                
+                this.createNote(JSON.stringify(imageData), "image");
                 this.closeChatInput();
             };
-            img.src = e.target.result;
+            img.src = originalDataUrl;
         };
         reader.readAsDataURL(file);
     }
@@ -693,10 +701,21 @@ class CalendarNavigator {
                 noteEl.className = "photo-note";
                 noteEl.style.left = `${note.x}px`;
                 noteEl.style.top = `${note.y}px`;
-                noteEl.innerHTML = `<img src="${note.content}" alt="Photo">`;
+                
+                // Handle both old and new image format
+                let thumbnailSrc;
+                try {
+                    const imageData = JSON.parse(note.content);
+                    thumbnailSrc = imageData.thumbnail;
+                } catch {
+                    // Old format - use content as is
+                    thumbnailSrc = note.content;
+                }
+                
+                noteEl.innerHTML = `<img src="${thumbnailSrc}" alt="Photo">`;
                 noteEl.addEventListener("click", (e) => {
                     if (!this.isDragging) {
-                        this.showNoteDetail(note);
+                        this.showImageFullPage(note);
                     }
                 });
                 this.setupNoteDragHandlers(noteEl, note);
@@ -741,6 +760,12 @@ class CalendarNavigator {
     }
     
     showNoteDetail(note) {
+        // Don't use modal for images - they have their own full-page viewer
+        if (note.type === "image") {
+            this.showImageFullPage(note);
+            return;
+        }
+        
         // Create modal if it doesn't exist
         let modal = document.querySelector(".note-detail-modal");
         if (!modal) {
@@ -771,14 +796,11 @@ class CalendarNavigator {
                 <h3>${note.title}</h3>
                 <div class="note-detail-text">${note.content}</div>
             `;
-        } else if (note.type === "image") {
-            body.innerHTML = `
-                <img src="${note.content}" class="note-detail-image">
-            `;
         } else if (note.type === "audio") {
             body.innerHTML = `
                 <h3>${note.title}</h3>
                 <audio controls style="width: 100%; margin-top: 20px;">
+                    <source src="${note.content}" type="audio/webm">
                     <source src="${note.content}" type="audio/wav">
                     Your browser does not support audio playback.
                 </audio>
@@ -793,13 +815,88 @@ class CalendarNavigator {
         modal.classList.add("active");
     }
     
+    showImageFullPage(note) {
+        // Get the original image or fallback to content
+        let imageSrc;
+        try {
+            const imageData = JSON.parse(note.content);
+            imageSrc = imageData.original;
+        } catch {
+            // Old format - use content as is
+            imageSrc = note.content;
+        }
+        
+        // Create full-page image viewer
+        const viewer = document.createElement("div");
+        viewer.className = "image-viewer";
+        viewer.innerHTML = `
+            <button class="image-viewer-close">×</button>
+            <div class="image-viewer-container">
+                <img src="${imageSrc}" class="image-viewer-img" alt="Photo">
+            </div>
+        `;
+        
+        document.body.appendChild(viewer);
+        
+        // Animate in
+        setTimeout(() => {
+            viewer.classList.add("active");
+        }, 10);
+        
+        // Close handlers
+        const closeViewer = () => {
+            viewer.classList.remove("active");
+            setTimeout(() => {
+                viewer.remove();
+            }, 300);
+        };
+        
+        viewer.querySelector(".image-viewer-close").addEventListener("click", closeViewer);
+        
+        // Close on image click
+        viewer.querySelector(".image-viewer-container").addEventListener("click", closeViewer);
+        
+        // Prevent image click from bubbling
+        viewer.querySelector(".image-viewer-img").addEventListener("click", (e) => {
+            e.stopPropagation();
+        });
+    }
+    
     getDateKey(date) {
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     }
     
     async startRecording() {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            // First check if mediaDevices is available
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                this.showPermissionMessage("Your browser doesn't support audio recording. Please use a modern browser.");
+                return;
+            }
+            
+            // Check current permission state if available
+            if (navigator.permissions && navigator.permissions.query) {
+                try {
+                    const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+                    
+                    if (permissionStatus.state === 'denied') {
+                        this.showPermissionMessage("Microphone access denied. Please enable microphone permissions in your browser settings and reload the page.");
+                        return;
+                    }
+                } catch (e) {
+                    // Permissions API might not support microphone query, continue anyway
+                }
+            }
+            
+            // Request microphone access
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    sampleRate: 44100
+                }
+            });
+            
             this.mediaRecorder = new MediaRecorder(stream);
             this.audioChunks = [];
             
@@ -808,7 +905,7 @@ class CalendarNavigator {
             };
             
             this.mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
+                const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
                 const reader = new FileReader();
                 reader.onload = () => {
                     this.createNote(reader.result, "audio");
@@ -823,10 +920,61 @@ class CalendarNavigator {
             this.mediaRecorder.start();
             this.audioButton.textContent = "⏹";
             this.audioButton.style.background = "rgba(255, 0, 0, 0.3)";
+            
         } catch (error) {
             console.error("Error accessing microphone:", error);
-            alert("Could not access microphone. Please check permissions.");
+            
+            let message = "Could not access microphone. ";
+            
+            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                message += "Please allow microphone access when prompted. If you previously denied access, go to your browser settings to enable it.";
+            } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                message += "No microphone found. Please connect a microphone and try again.";
+            } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                message += "Microphone is already in use by another application.";
+            } else if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') {
+                message += "Could not configure microphone with the requested settings.";
+            } else if (error.name === 'NotSupportedError') {
+                message += "Audio recording is not supported in this browser or context. Note: microphone access requires HTTPS or localhost.";
+            } else {
+                message += error.message || "Please check your browser settings.";
+            }
+            
+            this.showPermissionMessage(message);
         }
+    }
+    
+    showPermissionMessage(message) {
+        // Create a temporary message overlay
+        const messageEl = document.createElement("div");
+        messageEl.className = "permission-message";
+        messageEl.innerHTML = `
+            <div class="permission-message-content">
+                <div class="permission-message-icon">🎤</div>
+                <div class="permission-message-text">${message}</div>
+                <button class="permission-message-close">OK</button>
+            </div>
+        `;
+        
+        document.body.appendChild(messageEl);
+        
+        // Show with animation
+        setTimeout(() => {
+            messageEl.classList.add("active");
+        }, 10);
+        
+        // Close handler
+        const close = () => {
+            messageEl.classList.remove("active");
+            setTimeout(() => {
+                messageEl.remove();
+            }, 300);
+        };
+        
+        messageEl.querySelector(".permission-message-close").addEventListener("click", close);
+        
+        // Auto-close after 10 seconds
+        setTimeout(close, 10000);
     }
     
     stopRecording() {

@@ -751,7 +751,10 @@ class CalendarNavigator {
                     original: originalDataUrl
                 };
                 
-                this.createNote(JSON.stringify(imageData), "image");
+                // Use pending location if available, otherwise use longPress position
+                const location = this.pendingPhotoLocation || this.longPressPosition;
+                this.createNoteWithLocation(JSON.stringify(imageData), "image", location.x, location.y);
+                this.pendingPhotoLocation = null;
                 this.closeChatInput();
             };
             img.src = originalDataUrl;
@@ -775,6 +778,38 @@ class CalendarNavigator {
             shade: this.selectedShade,
             x: this.longPressPosition.x,
             y: this.longPressPosition.y,
+            timestamp: Date.now()
+        };
+        
+        // Add to memory
+        if (!this.notes.has(dateKey)) {
+            this.notes.set(dateKey, []);
+        }
+        this.notes.get(dateKey).push(note);
+        
+        // Save to IndexedDB
+        this.saveNote(note);
+        
+        // Re-render to show new note
+        this.renderNotes();
+    }
+    
+    createNoteWithLocation(content, type, x, y) {
+        const dateKey = this.getDateKey(this.currentDate);
+        const id = `${dateKey}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Generate title from content hash
+        const title = this.generateTitle(content);
+        
+        const note = {
+            id,
+            date: dateKey,
+            content,
+            type,
+            title,
+            shade: this.selectedShade,
+            x: x,
+            y: y,
             timestamp: Date.now()
         };
         
@@ -1518,22 +1553,37 @@ class CalendarNavigator {
             this.updateRadialMenuVisuals();
         }
         
-        // Update line position to point to finger
+        // Update line from initial press point to current finger location
         const menu = document.querySelector('.radial-menu');
         const line = menu.querySelector('.radial-line');
         const circle = menu.querySelector('.radial-circle');
         const label = menu.querySelector('.radial-label');
         
         if (distance > 10) {
-            const angle = Math.atan2(deltaY, deltaX) * 180 / Math.PI;
-            const lineLength = Math.min(distance, 120); // Max length to circle edge
-            line.style.transform = `rotate(${angle}deg) scaleX(${lineLength / 60})`;
+            const angle = Math.atan2(deltaY, deltaX);
+            
+            // Calculate absolute positions for line from start to current finger
+            const menuRect = menu.getBoundingClientRect();
+            const lineStartX = this.radialMenu.startX - menuRect.left;
+            const lineStartY = this.radialMenu.startY - menuRect.top;
+            const lineEndX = this.radialMenu.currentX - menuRect.left;
+            const lineEndY = this.radialMenu.currentY - menuRect.top;
+            
+            // Calculate line length and angle
+            const lineLength = Math.sqrt((lineEndX - lineStartX) ** 2 + (lineEndY - lineStartY) ** 2);
+            const lineAngle = Math.atan2(lineEndY - lineStartY, lineEndX - lineStartX);
+            
+            line.style.left = `${lineStartX}px`;
+            line.style.top = `${lineStartY}px`;
+            line.style.width = `${lineLength}px`;
+            line.style.transform = `rotate(${lineAngle}rad)`;
+            line.style.transformOrigin = '0 50%';
             line.style.opacity = '1';
             
-            // Position label near the circle edge in direction of finger
-            const labelDistance = 70; // Distance from center to label
-            const labelX = Math.cos(angle * Math.PI / 180) * labelDistance;
-            const labelY = Math.sin(angle * Math.PI / 180) * labelDistance;
+            // Position label stationary outside circle in direction of finger
+            const labelDistance = 80;
+            const labelX = Math.cos(angle) * labelDistance;
+            const labelY = Math.sin(angle) * labelDistance;
             label.style.left = `calc(50% + ${labelX}px)`;
             label.style.top = `calc(50% + ${labelY}px)`;
             label.style.transform = 'translate(-50%, -50%)';
@@ -1548,7 +1598,7 @@ class CalendarNavigator {
             
             // Reset label position
             label.style.left = '50%';
-            label.style.top = '100%';
+            label.style.top = 'calc(100% + 20px)';
             label.style.transform = 'translateX(-50%)';
         }
     }
@@ -1602,27 +1652,31 @@ class CalendarNavigator {
     }
     
     executeRadialAction(actionName) {
+        const x = this.radialMenu.startX;
+        const y = this.radialMenu.startY;
+        
         switch (actionName) {
             case 'note':
-                this.openActionPage('note');
+                this.createNoteAtLocation(x, y);
                 break;
             case 'photo':
-                this.triggerPhotoCapture();
+                this.triggerPhotoCaptureAtLocation(x, y);
                 break;
             case 'audio':
-                this.openActionPage('audio');
+                this.createAudioNoteAtLocation(x, y);
                 break;
             case 'video':
-                this.triggerVideoCapture();
+                this.triggerVideoCaptureAtLocation(x, y);
                 break;
             case 'todos':
-                this.openActionPage('todos');
+                this.createTodoListAtLocation(x, y);
                 break;
             case 'timer':
-                this.openActionPage('timer');
+                this.createTimerAtLocation(x, y);
                 break;
             case 'email':
-                this.openActionPage('email');
+                // Launch Gmail compose
+                window.open('https://mail.google.com/mail/?view=cm&fs=1&tf=1', '_blank');
                 break;
             case 'thai':
                 this.openActionPage('thai');
@@ -1631,6 +1685,79 @@ class CalendarNavigator {
                 this.openActionPage('chat');
                 break;
         }
+    }
+    
+    createNoteAtLocation(x, y) {
+        const note = {
+            id: Date.now().toString(),
+            text: '',
+            date: this.currentDate.toDateString(),
+            x: x,
+            y: y,
+            shade: 1,
+            type: 'text'
+        };
+        
+        this.notes.push(note);
+        this.saveNotes();
+        this.render();
+        
+        // Open quick edit for the new note
+        setTimeout(() => {
+            this.showNoteDetail(note);
+        }, 100);
+    }
+    
+    triggerPhotoCaptureAtLocation(x, y) {
+        this.pendingPhotoLocation = { x, y };
+        this.triggerPhotoCapture();
+    }
+    
+    triggerVideoCaptureAtLocation(x, y) {
+        this.pendingVideoLocation = { x, y };
+        this.triggerVideoCapture();
+    }
+    
+    createAudioNoteAtLocation(x, y) {
+        this.pendingAudioLocation = { x, y };
+        this.openActionPage('audio');
+    }
+    
+    createTodoListAtLocation(x, y) {
+        const note = {
+            id: Date.now().toString(),
+            text: '- [ ] New task',
+            date: this.currentDate.toDateString(),
+            x: x,
+            y: y,
+            shade: 1,
+            type: 'todos'
+        };
+        
+        this.notes.push(note);
+        this.saveNotes();
+        this.render();
+        
+        // Open quick edit for the new todo list
+        setTimeout(() => {
+            this.showNoteDetail(note);
+        }, 100);
+    }
+    
+    createTimerAtLocation(x, y) {
+        const note = {
+            id: Date.now().toString(),
+            text: '25:00',
+            date: this.currentDate.toDateString(),
+            x: x,
+            y: y,
+            shade: 1,
+            type: 'timer'
+        };
+        
+        this.notes.push(note);
+        this.saveNotes();
+        this.render();
     }
     
     openActionPage(actionType) {
@@ -1860,6 +1987,9 @@ class CalendarNavigator {
             
             const title = this.generateTitle('video');
             
+            // Use pending location if available, otherwise use longPress position
+            const location = this.pendingVideoLocation || this.longPressPosition;
+            
             const note = {
                 id,
                 date: dateKey,
@@ -1867,10 +1997,12 @@ class CalendarNavigator {
                 type: 'video',
                 title,
                 shade: this.selectedShade,
-                x: this.longPressPosition.x,
-                y: this.longPressPosition.y,
+                x: location.x,
+                y: location.y,
                 timestamp: Date.now()
             };
+            
+            this.pendingVideoLocation = null;
             
             // Add to memory
             if (!this.notes.has(dateKey)) {

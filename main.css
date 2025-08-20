@@ -972,11 +972,11 @@ body {
 }
 
 .radial-circle.rotate-forward {
-    animation: rotateForward 2s linear infinite;
+    animation: rotateForward 4s linear infinite;
 }
 
 .radial-circle.rotate-reverse {
-    animation: rotateReverse 2s linear infinite;
+    animation: rotateReverse 4s linear infinite;
 }
 
 @keyframes rotateForward {
@@ -1002,14 +1002,11 @@ body {
 
 .radial-line {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 60px;
     height: 2px;
     background: rgba(255, 255, 255, 0.6);
-    transform-origin: 0 50%;
     opacity: 0;
-    transition: all 0.2s ease;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
 }
 
 .radial-icon-container {
@@ -1032,8 +1029,8 @@ body {
 }
 
 .radial-icon-container svg {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     color: rgba(255, 255, 255, 0.9);
 }
 

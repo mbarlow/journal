@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Neumorphic UI Library Demo</title>
+        <link rel="stylesheet" href="neumorphic-ui.css" />
+    </head>
+    <body>
+        <div class="nui-heading--lg">Neumorphic UI Library Demo</div>
+
+        <!-- Theme Toggle -->
+        <button id="themeToggle" class="nui-btn">Toggle Dark Mode</button>
+
+        <!-- Cards -->
+        <div
+            style="
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+                margin-top: 1rem;
+            "
+        >
+            <div class="nui-card">
+                <div class="nui-heading--md">Light</div>
+                <div class="nui-text--sm">Brightness</div>
+            </div>
+            <div class="nui-card">
+                <div class="nui-heading--md">Music</div>
+                <div class="nui-text--sm">Active</div>
+            </div>
+            <div class="nui-card">
+                <div class="nui-heading--md">Wi-Fi</div>
+                <div class="nui-text--sm">Connected</div>
+            </div>
+            <div class="nui-card">
+                <div class="nui-heading--md">Air</div>
+                <div class="nui-text--sm">Medium</div>
+            </div>
+        </div>
+
+        <!-- Toggle -->
+        <div
+            class="nui-card"
+            style="
+                margin-top: 1rem;
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+            "
+        >
+            <div class="nui-label">Switch</div>
+            <div id="demoToggle" class="nui-toggle">
+                <div class="nui-toggle__thumb"></div>
+            </div>
+        </div>
+
+        <!-- Knob -->
+        <div
+            class="nui-card"
+            style="margin-top: 1rem; display: flex; justify-content: center"
+        >
+            <div id="demoKnob" class="nui-knob">
+                <div class="nui-knob__indicator"></div>
+                <div class="nui-knob__center">00:00</div>
+            </div>
+        </div>
+
+        <!-- Buttons -->
+        <div style="display: flex; gap: 1rem; margin-top: 1rem">
+            <button class="nui-btn">Default</button>
+            <button class="nui-btn">Pressed</button>
+        </div>
+
+        <script>
+            // Toggle demo
+            const toggle = document.getElementById("demoToggle");
+            toggle.addEventListener("click", () => {
+                toggle.classList.toggle("nui-toggle--active");
+            });
+
+            // Knob demo
+            const knob = document.getElementById("demoKnob");
+            const indicator = knob.querySelector(".nui-knob__indicator");
+            let angle = 0;
+            knob.addEventListener("click", () => {
+                angle = (angle + 45) % 360;
+                indicator.style.transform = `rotate(${angle}deg)`;
+            });
+
+            // Dark Mode Toggle
+            const themeToggle = document.getElementById("themeToggle");
+            themeToggle.addEventListener("click", () => {
+                const root = document.documentElement;
+                const theme = root.getAttribute("data-theme");
+                root.setAttribute(
+                    "data-theme",
+                    theme === "dark" ? "light" : "dark",
+                );
+            });
+        </script>
+    </body>
+</html>

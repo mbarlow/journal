@@ -1,0 +1,127 @@
+{
+  "theme": {
+    "name": "cosmic-dark",
+    "colors": {
+      "background": "#1a1a1a",
+      "surface": "#242424",
+      "primary": "rgba(255, 255, 255, 0.95)",
+      "secondary": "rgba(255, 255, 255, 0.7)",
+      "tertiary": "rgba(255, 255, 255, 0.5)",
+      "accent": "rgba(255, 255, 255, 0.3)",
+      "border": "rgba(255, 255, 255, 0.15)",
+      "shadow": "rgba(0, 0, 0, 0.5)",
+      "error": "#ff4444",
+      "success": "#44ff44",
+      "warning": "#ffaa44"
+    },
+    "noteShades": [
+      "rgba(255, 255, 255, 0.1)",
+      "rgba(255, 255, 255, 0.2)",
+      "rgba(255, 255, 255, 0.3)",
+      "rgba(255, 255, 255, 0.4)",
+      "rgba(255, 255, 255, 0.5)"
+    ]
+  },
+  "typography": {
+    "fontFamily": {
+      "primary": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+      "mono": "'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace",
+      "handwriting": "'Kalam', 'Comic Sans MS', cursive"
+    },
+    "fontSize": {
+      "xs": "11px",
+      "sm": "13px",
+      "base": "16px",
+      "lg": "20px",
+      "xl": "24px",
+      "xxl": "32px"
+    },
+    "fontWeight": {
+      "light": 300,
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700
+    },
+    "lineHeight": {
+      "tight": 1.2,
+      "normal": 1.5,
+      "relaxed": 1.75
+    }
+  },
+  "animations": {
+    "duration": {
+      "instant": "0ms",
+      "fast": "150ms",
+      "normal": "300ms",
+      "slow": "500ms",
+      "slower": "1000ms"
+    },
+    "easing": {
+      "linear": "linear",
+      "ease": "ease",
+      "easeIn": "ease-in",
+      "easeOut": "ease-out",
+      "easeInOut": "cubic-bezier(0.4, 0, 0.2, 1)",
+      "bounce": "cubic-bezier(0.68, -0.55, 0.265, 1.55)"
+    }
+  },
+  "gestures": {
+    "swipeThreshold": 50,
+    "longPressDelay": 500,
+    "doubleTapDelay": 300,
+    "dragThreshold": 10,
+    "pinchSensitivity": 0.02
+  },
+  "radialMenu": {
+    "radius": 60,
+    "lineColor": "rgba(255, 255, 255, 0.6)",
+    "circleColor": "rgba(255, 255, 255, 0.4)",
+    "rotationSpeed": 4000,
+    "distancePerOption": 30
+  },
+  "features": {
+    "showClock": true,
+    "showWeather": false,
+    "autoSave": true,
+    "autoSaveInterval": 5000,
+    "enableHaptics": true,
+    "enableSounds": false
+  },
+  "presets": {
+    "themes": [
+      {
+        "id": "cosmic-dark",
+        "name": "Cosmic Dark (Default)",
+        "description": "Monochromatic dark theme"
+      },
+      {
+        "id": "paper-light",
+        "name": "Paper Light",
+        "description": "Clean white background",
+        "colors": {
+          "background": "#ffffff",
+          "primary": "#1a1a1a"
+        }
+      },
+      {
+        "id": "ocean-blue",
+        "name": "Ocean Blue",
+        "description": "Deep blue theme",
+        "colors": {
+          "background": "#0a1628",
+          "primary": "#a7c7e7"
+        }
+      },
+      {
+        "id": "forest-green",
+        "name": "Forest Green",
+        "description": "Natural green theme",
+        "colors": {
+          "background": "#1a2f1a",
+          "primary": "#90ee90"
+        }
+      }
+    ]
+  }
+}

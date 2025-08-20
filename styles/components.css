@@ -1,0 +1,248 @@
+.radial-menu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.menu-svg {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.menu-circle {
+    fill: none;
+    stroke: var(--color-accent);
+    stroke-width: 2;
+    stroke-dasharray: 5, 5;
+    animation: rotate 4s linear infinite;
+}
+
+.menu-line {
+    stroke: var(--color-primary);
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+.menu-options {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.menu-option {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    border: 2px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--duration-fast) var(--ease-out);
+    pointer-events: auto;
+}
+
+.menu-option.active {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    transform: scale(1.1);
+}
+
+.menu-option svg {
+    width: 24px;
+    height: 24px;
+    fill: var(--color-primary);
+}
+
+.menu-option.active svg {
+    fill: var(--color-bg);
+}
+
+.note-item {
+    position: absolute;
+    min-width: 100px;
+    min-height: 100px;
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-md);
+    cursor: move;
+    transition: transform var(--duration-fast) var(--ease-out);
+    box-shadow: 0 2px 8px var(--color-shadow);
+}
+
+.note-item.dragging {
+    transform: scale(1.05);
+    z-index: 100;
+    cursor: grabbing;
+}
+
+.note-content {
+    width: 100%;
+    height: 100%;
+    font-size: var(--font-sm);
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+.note-shade-1 { background: rgba(255, 255, 255, 0.1); }
+.note-shade-2 { background: rgba(255, 255, 255, 0.2); }
+.note-shade-3 { background: rgba(255, 255, 255, 0.3); }
+.note-shade-4 { background: rgba(255, 255, 255, 0.4); }
+.note-shade-5 { background: rgba(255, 255, 255, 0.5); }
+
+.trash-zone {
+    position: fixed;
+    bottom: var(--spacing-lg);
+    right: var(--spacing-lg);
+    width: 80px;
+    height: 80px;
+    border-radius: var(--radius-full);
+    background: var(--color-error);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    transition: all var(--duration-fast) var(--ease-out);
+}
+
+.trash-zone.active {
+    transform: scale(1.2);
+    background: var(--color-error);
+}
+
+.trash-icon {
+    width: 40px;
+    height: 40px;
+    fill: white;
+}
+
+.day-view {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.week-view {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    padding-top: 80px;
+}
+
+.week-day {
+    flex: 1;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm);
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-out);
+}
+
+.week-day:hover {
+    background: var(--color-surface);
+    border-color: var(--color-secondary);
+}
+
+.week-day.current {
+    border-color: var(--color-primary);
+    background: var(--color-surface);
+}
+
+.month-view {
+    width: 100%;
+    height: 100%;
+    padding: var(--spacing-md);
+    padding-top: 80px;
+}
+
+.month-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: var(--spacing-xs);
+    height: 100%;
+}
+
+.month-day {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-xs);
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-out);
+    position: relative;
+}
+
+.month-day:hover {
+    background: var(--color-surface);
+    border-color: var(--color-secondary);
+}
+
+.month-day.current {
+    border-color: var(--color-primary);
+    background: var(--color-surface);
+}
+
+.month-day-number {
+    font-size: var(--font-sm);
+    color: var(--color-secondary);
+}
+
+.content-dots {
+    position: absolute;
+    bottom: var(--spacing-xs);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 2px;
+}
+
+.content-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: var(--radius-full);
+    background: var(--color-accent);
+}
+
+.year-view {
+    width: 100%;
+    height: 100%;
+    padding: var(--spacing-md);
+    padding-top: 80px;
+}
+
+.year-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-md);
+    height: 100%;
+}
+
+.year-month {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm);
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-out);
+}
+
+.year-month:hover {
+    background: var(--color-surface);
+    border-color: var(--color-secondary);
+}
+
+.year-month-title {
+    font-size: var(--font-sm);
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: var(--spacing-xs);
+}

@@ -1,27 +1,39 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Calendar Swipe Navigation</title>
-        <link rel="stylesheet" href="main.css">
-    </head>
-    <body>
-        <div class="container" id="container">
-            <div class="header">
-                <h1 id="headerTitle">Today</h1>
-            </div>
-
-            <button class="fullscreen-toggle" id="fullscreenToggle">+</button>
-
-            <div class="page" id="currentPage">
-                <div class="content" id="pageContent">
-                    <!-- Content will be dynamically generated -->
-                </div>
-            </div>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <title>Cosmic Journal</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/animations.css">
+    <link rel="stylesheet" href="styles/responsive.css">
+</head>
+<body>
+    <div id="app">
+        <header id="date-header">
+            <h1 id="current-date"></h1>
+            <div id="clock" class="clock"></div>
+        </header>
+        
+        <main id="content-area">
+            <div id="view-container" class="view-container"></div>
+        </main>
+        
+        <div id="radial-menu" class="radial-menu hidden">
+            <svg id="menu-svg" class="menu-svg"></svg>
+            <div id="menu-options" class="menu-options"></div>
         </div>
-
-
-        <script src="app.js"></script>
-    </body>
+        
+        <div id="trash-zone" class="trash-zone hidden">
+            <svg viewBox="0 0 24 24" class="trash-icon">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+        </div>
+    </div>
+    
+    <script type="module" src="scripts/app.js"></script>
+</body>
 </html>

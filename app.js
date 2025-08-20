@@ -192,7 +192,7 @@ class CalendarNavigator {
         switch (this.level) {
             case "week":
                 this.level = "day";
-                this.currentDate = new Date(this.currentWeekStart);
+                // Keep the current date instead of jumping to week start
                 break;
             case "month":
                 this.level = "week";

@@ -15,6 +15,27 @@ class CalendarNavigator {
         this.isDragging = false;
         this.draggedNote = null;
         this.dragOffset = { x: 0, y: 0 };
+        
+        // Radial menu system
+        this.radialMenu = {
+            active: false,
+            startX: 0,
+            startY: 0,
+            currentX: 0,
+            currentY: 0,
+            selectedOption: 0,
+            options: [
+                { name: 'note', icon: 'edit', label: 'Note' },
+                { name: 'photo', icon: 'camera', label: 'Photo' },
+                { name: 'audio', icon: 'mic', label: 'Audio' },
+                { name: 'video', icon: 'video', label: 'Video' },
+                { name: 'todos', icon: 'check-square', label: 'Todos' },
+                { name: 'timer', icon: 'clock', label: 'Timer' },
+                { name: 'email', icon: 'mail', label: 'Email' },
+                { name: 'thai', icon: 'book', label: 'Thai Word' },
+                { name: 'chat', icon: 'message-circle', label: 'AI Chat' }
+            ]
+        };
 
         this.container = document.getElementById("container");
         this.headerTitle = document.getElementById("headerTitle");
@@ -43,12 +64,20 @@ class CalendarNavigator {
                 this.longPressPosition = { x: startX, y: startY };
                 this.longPressTimer = setTimeout(() => {
                     isLongPress = true;
-                    this.openChatInput();
+                    this.showRadialMenu(startX, startY);
                 }, 500); // 500ms for long press
             }
         });
         
-        this.container.addEventListener("touchmove", () => {
+        this.container.addEventListener("touchmove", (e) => {
+            // Handle radial menu dragging
+            if (this.radialMenu.active) {
+                const currentX = e.touches[0].clientX;
+                const currentY = e.touches[0].clientY;
+                this.updateRadialMenu(currentX, currentY);
+                return;
+            }
+            
             // Cancel long press if user moves
             if (this.longPressTimer) {
                 clearTimeout(this.longPressTimer);
@@ -57,6 +86,12 @@ class CalendarNavigator {
         });
 
         this.container.addEventListener("touchend", (e) => {
+            // Handle radial menu selection
+            if (this.radialMenu.active) {
+                this.selectRadialMenuOption();
+                return;
+            }
+            
             // Clear long press timer
             if (this.longPressTimer) {
                 clearTimeout(this.longPressTimer);
@@ -800,7 +835,7 @@ class CalendarNavigator {
     
     renderNotes() {
         // Always clear notes from DOM first
-        document.querySelectorAll(".sticky-note, .photo-note, .audio-note, .verse-note").forEach(el => el.remove());
+        document.querySelectorAll(".sticky-note, .photo-note, .audio-note, .video-note, .verse-note").forEach(el => el.remove());
         
         if (this.level !== "day") return;
         
@@ -856,6 +891,22 @@ class CalendarNavigator {
                 noteEl.innerHTML = `
                     <div class="audio-note-icon">🎵</div>
                     <div class="audio-note-title">${note.title}</div>
+                `;
+                noteEl.addEventListener("click", (e) => {
+                    if (!this.isDragging) {
+                        this.showNoteDetail(note);
+                    }
+                });
+                this.setupNoteDragHandlers(noteEl, note);
+                this.container.appendChild(noteEl);
+            } else if (note.type === "video") {
+                const noteEl = document.createElement("div");
+                noteEl.className = "video-note";
+                noteEl.style.left = `${note.x}px`;
+                noteEl.style.top = `${note.y}px`;
+                noteEl.innerHTML = `
+                    <div class="video-note-icon">🎬</div>
+                    <div class="video-note-title">${note.title}</div>
                 `;
                 noteEl.addEventListener("click", (e) => {
                     if (!this.isDragging) {
@@ -932,6 +983,15 @@ class CalendarNavigator {
                     <source src="${note.content}" type="audio/wav">
                     Your browser does not support audio playback.
                 </audio>
+            `;
+        } else if (note.type === "video") {
+            body.innerHTML = `
+                <h3>${note.title}</h3>
+                <video controls style="width: 100%; margin-top: 20px; border-radius: 4px;">
+                    <source src="${note.content}" type="video/mp4">
+                    <source src="${note.content}" type="video/webm">
+                    Your browser does not support video playback.
+                </video>
             `;
         } else if (note.type === "verse") {
             body.innerHTML = `
@@ -1405,6 +1465,426 @@ class CalendarNavigator {
         
         // Re-render notes
         this.renderNotes();
+    }
+    
+    showRadialMenu(x, y) {
+        this.radialMenu.active = true;
+        this.radialMenu.startX = x;
+        this.radialMenu.startY = y;
+        this.radialMenu.currentX = x;
+        this.radialMenu.currentY = y;
+        this.radialMenu.selectedOption = 0;
+        
+        // Create radial menu UI
+        const menu = document.createElement('div');
+        menu.className = 'radial-menu';
+        menu.innerHTML = `
+            <div class="radial-circle">
+                <div class="radial-center"></div>
+                <div class="radial-line"></div>
+                <div class="radial-icon-container">
+                    ${this.getRadialIcon(this.radialMenu.options[0])}
+                </div>
+                <div class="radial-label">${this.radialMenu.options[0].label}</div>
+            </div>
+        `;
+        
+        menu.style.left = `${x}px`;
+        menu.style.top = `${y}px`;
+        document.body.appendChild(menu);
+        
+        // Animate in
+        setTimeout(() => {
+            menu.classList.add('active');
+        }, 10);
+    }
+    
+    updateRadialMenu(x, y) {
+        this.radialMenu.currentX = x;
+        this.radialMenu.currentY = y;
+        
+        const deltaX = x - this.radialMenu.startX;
+        const deltaY = y - this.radialMenu.startY;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        // Calculate which option to select based on distance
+        const optionCount = this.radialMenu.options.length;
+        const distanceStep = 30; // pixels per option
+        const newOption = Math.min(Math.floor(distance / distanceStep), optionCount - 1);
+        
+        // Check if option changed
+        if (newOption !== this.radialMenu.selectedOption) {
+            this.radialMenu.selectedOption = newOption;
+            this.updateRadialMenuVisuals();
+        }
+        
+        // Update line position to point to finger
+        const menu = document.querySelector('.radial-menu');
+        const line = menu.querySelector('.radial-line');
+        const circle = menu.querySelector('.radial-circle');
+        const label = menu.querySelector('.radial-label');
+        
+        if (distance > 10) {
+            const angle = Math.atan2(deltaY, deltaX) * 180 / Math.PI;
+            const lineLength = Math.min(distance, 120); // Max length to circle edge
+            line.style.transform = `rotate(${angle}deg) scaleX(${lineLength / 60})`;
+            line.style.opacity = '1';
+            
+            // Position label near the circle edge in direction of finger
+            const labelDistance = 70; // Distance from center to label
+            const labelX = Math.cos(angle * Math.PI / 180) * labelDistance;
+            const labelY = Math.sin(angle * Math.PI / 180) * labelDistance;
+            label.style.left = `calc(50% + ${labelX}px)`;
+            label.style.top = `calc(50% + ${labelY}px)`;
+            label.style.transform = 'translate(-50%, -50%)';
+            
+            // Rotate circle based on direction
+            const rotateDirection = distance > 60 ? 'forward' : 'reverse';
+            circle.classList.remove('rotate-forward', 'rotate-reverse');
+            circle.classList.add(`rotate-${rotateDirection}`);
+        } else {
+            line.style.opacity = '0';
+            circle.classList.remove('rotate-forward', 'rotate-reverse');
+            
+            // Reset label position
+            label.style.left = '50%';
+            label.style.top = '100%';
+            label.style.transform = 'translateX(-50%)';
+        }
+    }
+    
+    updateRadialMenuVisuals() {
+        const menu = document.querySelector('.radial-menu');
+        const iconContainer = menu.querySelector('.radial-icon-container');
+        const label = menu.querySelector('.radial-label');
+        const option = this.radialMenu.options[this.radialMenu.selectedOption];
+        
+        iconContainer.innerHTML = this.getRadialIcon(option);
+        label.textContent = option.label;
+        
+        // Add selection animation
+        iconContainer.classList.add('changing');
+        setTimeout(() => {
+            iconContainer.classList.remove('changing');
+        }, 200);
+    }
+    
+    getRadialIcon(option) {
+        const icons = {
+            'edit': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>',
+            'camera': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>',
+            'mic': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>',
+            'video': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23,7 16,12 23,17"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>',
+            'check-square': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,11 12,14 22,4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>',
+            'clock': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12,6 12,12 16,14"></polyline></svg>',
+            'mail': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>',
+            'book': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
+            'message-circle': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>'
+        };
+        return icons[option.icon] || icons.edit;
+    }
+    
+    selectRadialMenuOption() {
+        const option = this.radialMenu.options[this.radialMenu.selectedOption];
+        this.hideRadialMenu();
+        this.executeRadialAction(option.name);
+    }
+    
+    hideRadialMenu() {
+        const menu = document.querySelector('.radial-menu');
+        if (menu) {
+            menu.classList.remove('active');
+            setTimeout(() => {
+                menu.remove();
+            }, 300);
+        }
+        this.radialMenu.active = false;
+    }
+    
+    executeRadialAction(actionName) {
+        switch (actionName) {
+            case 'note':
+                this.openActionPage('note');
+                break;
+            case 'photo':
+                this.triggerPhotoCapture();
+                break;
+            case 'audio':
+                this.openActionPage('audio');
+                break;
+            case 'video':
+                this.triggerVideoCapture();
+                break;
+            case 'todos':
+                this.openActionPage('todos');
+                break;
+            case 'timer':
+                this.openActionPage('timer');
+                break;
+            case 'email':
+                this.openActionPage('email');
+                break;
+            case 'thai':
+                this.openActionPage('thai');
+                break;
+            case 'chat':
+                this.openActionPage('chat');
+                break;
+        }
+    }
+    
+    openActionPage(actionType) {
+        // Create action page overlay
+        const actionPage = document.createElement('div');
+        actionPage.className = `action-page action-page-${actionType}`;
+        actionPage.innerHTML = this.getActionPageContent(actionType);
+        
+        document.body.appendChild(actionPage);
+        
+        // Animate in
+        setTimeout(() => {
+            actionPage.classList.add('active');
+        }, 10);
+        
+        // Setup action page handlers
+        this.setupActionPageHandlers(actionPage, actionType);
+    }
+    
+    getActionPageContent(actionType) {
+        const pages = {
+            note: `
+                <div class="action-header">
+                    <button class="action-dismiss">×</button>
+                    <h2>Write Note</h2>
+                </div>
+                <div class="action-content">
+                    <textarea class="note-input" placeholder="Start writing..."></textarea>
+                    <button class="action-save">Save Note</button>
+                </div>
+            `,
+            todos: `
+                <div class="action-header">
+                    <button class="action-dismiss">×</button>
+                    <h2>Todo List</h2>
+                </div>
+                <div class="action-content">
+                    <div class="todo-input-row">
+                        <input type="text" class="todo-input" placeholder="Add new todo...">
+                        <button class="todo-add">+</button>
+                    </div>
+                    <div class="todo-list"></div>
+                </div>
+            `,
+            timer: `
+                <div class="action-header">
+                    <button class="action-dismiss">×</button>
+                    <h2>Timer</h2>
+                </div>
+                <div class="action-content">
+                    <div class="timer-display">00:00</div>
+                    <div class="timer-controls">
+                        <button class="timer-preset" data-minutes="5">5m</button>
+                        <button class="timer-preset" data-minutes="10">10m</button>
+                        <button class="timer-preset" data-minutes="25">25m</button>
+                    </div>
+                    <button class="timer-start">Start</button>
+                </div>
+            `
+        };
+        
+        return pages[actionType] || `
+            <div class="action-header">
+                <button class="action-dismiss">×</button>
+                <h2>${actionType.charAt(0).toUpperCase() + actionType.slice(1)}</h2>
+            </div>
+            <div class="action-content">
+                <p>Coming soon...</p>
+            </div>
+        `;
+    }
+    
+    setupActionPageHandlers(actionPage, actionType) {
+        // Dismiss button
+        const dismissBtn = actionPage.querySelector('.action-dismiss');
+        dismissBtn.addEventListener('click', () => {
+            this.closeActionPage(actionPage);
+        });
+        
+        // Type-specific handlers
+        if (actionType === 'note') {
+            this.setupNotePageHandlers(actionPage);
+        } else if (actionType === 'todos') {
+            this.setupTodoPageHandlers(actionPage);
+        } else if (actionType === 'timer') {
+            this.setupTimerPageHandlers(actionPage);
+        }
+    }
+    
+    setupNotePageHandlers(actionPage) {
+        const saveBtn = actionPage.querySelector('.action-save');
+        const textarea = actionPage.querySelector('.note-input');
+        
+        saveBtn.addEventListener('click', () => {
+            const content = textarea.value.trim();
+            if (content) {
+                this.createNote(content, 'text');
+                this.closeActionPage(actionPage);
+            }
+        });
+        
+        // Auto-focus
+        setTimeout(() => {
+            textarea.focus();
+        }, 300);
+    }
+    
+    setupTodoPageHandlers(actionPage) {
+        const addBtn = actionPage.querySelector('.todo-add');
+        const input = actionPage.querySelector('.todo-input');
+        const todoList = actionPage.querySelector('.todo-list');
+        
+        addBtn.addEventListener('click', () => {
+            const text = input.value.trim();
+            if (text) {
+                this.addTodoItem(todoList, text);
+                input.value = '';
+            }
+        });
+        
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addBtn.click();
+            }
+        });
+    }
+    
+    setupTimerPageHandlers(actionPage) {
+        const presetBtns = actionPage.querySelectorAll('.timer-preset');
+        const startBtn = actionPage.querySelector('.timer-start');
+        const display = actionPage.querySelector('.timer-display');
+        
+        let timerMinutes = 5;
+        
+        presetBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                presetBtns.forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                timerMinutes = parseInt(btn.dataset.minutes);
+                display.textContent = `${timerMinutes.toString().padStart(2, '0')}:00`;
+            });
+        });
+        
+        // Select first preset by default
+        presetBtns[0].click();
+    }
+    
+    addTodoItem(todoList, text) {
+        const todoItem = document.createElement('div');
+        todoItem.className = 'todo-item';
+        todoItem.innerHTML = `
+            <input type="checkbox" class="todo-checkbox">
+            <span class="todo-text">${text}</span>
+            <button class="todo-delete">×</button>
+        `;
+        
+        todoList.appendChild(todoItem);
+        
+        // Setup handlers
+        const checkbox = todoItem.querySelector('.todo-checkbox');
+        const deleteBtn = todoItem.querySelector('.todo-delete');
+        
+        checkbox.addEventListener('change', () => {
+            todoItem.classList.toggle('completed', checkbox.checked);
+        });
+        
+        deleteBtn.addEventListener('click', () => {
+            todoItem.remove();
+        });
+    }
+    
+    closeActionPage(actionPage) {
+        actionPage.classList.remove('active');
+        setTimeout(() => {
+            actionPage.remove();
+        }, 300);
+    }
+    
+    triggerPhotoCapture() {
+        // Create hidden file input for photo capture
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.capture = 'environment'; // Use rear camera
+        fileInput.style.display = 'none';
+        
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                this.processImage(file);
+            }
+            fileInput.remove();
+        });
+        
+        document.body.appendChild(fileInput);
+        fileInput.click();
+    }
+    
+    triggerVideoCapture() {
+        // Create hidden file input for video capture
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'video/*';
+        fileInput.capture = 'environment'; // Use rear camera
+        fileInput.style.display = 'none';
+        
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                this.processVideo(file);
+            }
+            fileInput.remove();
+        });
+        
+        document.body.appendChild(fileInput);
+        fileInput.click();
+    }
+    
+    processVideo(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const videoDataUrl = e.target.result;
+            
+            // Create video note
+            const dateKey = this.getDateKey(this.currentDate);
+            const id = `${dateKey}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            
+            const title = this.generateTitle('video');
+            
+            const note = {
+                id,
+                date: dateKey,
+                content: videoDataUrl,
+                type: 'video',
+                title,
+                shade: this.selectedShade,
+                x: this.longPressPosition.x,
+                y: this.longPressPosition.y,
+                timestamp: Date.now()
+            };
+            
+            // Add to memory
+            if (!this.notes.has(dateKey)) {
+                this.notes.set(dateKey, []);
+            }
+            this.notes.get(dateKey).push(note);
+            
+            // Save to IndexedDB
+            this.saveNote(note);
+            
+            // Re-render to show new note
+            this.renderNotes();
+        };
+        reader.readAsDataURL(file);
     }
 }
 

@@ -592,6 +592,36 @@ body {
     opacity: 0.8;
 }
 
+/* Video Notes */
+.video-note {
+    position: absolute;
+    padding: 8px;
+    background: rgba(255, 87, 51, 0.2);
+    border: 1px solid rgba(255, 87, 51, 0.4);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 60px;
+    text-align: center;
+    z-index: 10;
+}
+
+.video-note:hover {
+    transform: scale(1.05);
+    background: rgba(255, 87, 51, 0.3);
+    z-index: 11;
+}
+
+.video-note-icon {
+    font-size: 20px;
+    margin-bottom: 4px;
+}
+
+.video-note-title {
+    font-size: 10px;
+    opacity: 0.8;
+}
+
 /* Verse Notes with Golden Light Effects */
 .verse-note {
     position: absolute;
@@ -913,5 +943,370 @@ body {
 
 .permission-message-close:hover {
     background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-1px);
+}
+
+/* Radial Menu */
+.radial-menu {
+    position: fixed;
+    pointer-events: none;
+    z-index: 4000;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: all 0.3s ease;
+}
+
+.radial-menu.active {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.radial-circle {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    border: 2px dashed rgba(255, 255, 255, 0.4);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: all 0.3s ease;
+}
+
+.radial-circle.rotate-forward {
+    animation: rotateForward 2s linear infinite;
+}
+
+.radial-circle.rotate-reverse {
+    animation: rotateReverse 2s linear infinite;
+}
+
+@keyframes rotateForward {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes rotateReverse {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(-360deg); }
+}
+
+.radial-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 8px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.radial-line {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 60px;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.6);
+    transform-origin: 0 50%;
+    opacity: 0;
+    transition: all 0.2s ease;
+}
+
+.radial-icon-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 40px;
+    height: 40px;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(26, 26, 26, 0.9);
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.radial-icon-container.changing {
+    transform: translate(-50%, -50%) scale(1.2);
+}
+
+.radial-icon-container svg {
+    width: 20px;
+    height: 20px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.radial-label {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 8px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.8);
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* Action Pages */
+.action-page {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #1a1a1a;
+    z-index: 5000;
+    opacity: 0;
+    transform: translateY(100%);
+    transition: all 0.3s ease;
+}
+
+.action-page.active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.action-header {
+    position: relative;
+    padding: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: center;
+}
+
+.action-header h2 {
+    font-size: 18px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0;
+}
+
+.action-dismiss {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.action-dismiss:hover {
+    color: rgba(255, 255, 255, 0.9);
+    transform: scale(1.1);
+}
+
+.action-content {
+    padding: 20px;
+    height: calc(100vh - 80px);
+    overflow-y: auto;
+}
+
+/* Note Action Page */
+.note-input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 16px;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 16px;
+    line-height: 1.5;
+    outline: none;
+    resize: none;
+    min-height: 200px;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.note-input:focus {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.note-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.action-save {
+    margin-top: 16px;
+    padding: 12px 24px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-save:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+}
+
+/* Todo Action Page */
+.todo-input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.todo-input {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 14px;
+    outline: none;
+}
+
+.todo-input:focus {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.todo-add {
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.todo-add:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.todo-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.todo-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.todo-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.todo-item.completed {
+    opacity: 0.6;
+}
+
+.todo-item.completed .todo-text {
+    text-decoration: line-through;
+}
+
+.todo-checkbox {
+    width: 16px;
+    height: 16px;
+    accent-color: rgba(255, 255, 255, 0.8);
+}
+
+.todo-text {
+    flex: 1;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+}
+
+.todo-delete {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.todo-delete:hover {
+    color: rgba(255, 100, 100, 0.8);
+    transform: scale(1.1);
+}
+
+/* Timer Action Page */
+.timer-display {
+    font-size: 48px;
+    font-weight: 200;
+    color: rgba(255, 255, 255, 0.9);
+    text-align: center;
+    margin: 40px 0;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+.timer-controls {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 30px;
+}
+
+.timer-preset {
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.timer-preset:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.timer-preset.selected {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.timer-start {
+    display: block;
+    margin: 0 auto;
+    padding: 12px 32px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.timer-start:hover {
+    background: rgba(255, 255, 255, 0.15);
     transform: translateY(-1px);
 }

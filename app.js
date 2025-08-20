@@ -436,14 +436,50 @@ class CalendarNavigator {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen();
                 toggle.textContent = "-";
+                toggle.title = "Exit fullscreen";
             } else {
                 document.exitFullscreen();
                 toggle.textContent = "+";
+                toggle.title = "Enter fullscreen";
             }
         });
         
         document.addEventListener("fullscreenchange", () => {
-            toggle.textContent = document.fullscreenElement ? "-" : "+";
+            const isFullscreen = document.fullscreenElement;
+            toggle.textContent = isFullscreen ? "-" : "+";
+            toggle.title = isFullscreen ? "Exit fullscreen" : "Enter fullscreen";
+            
+            // Make toggle more visible in fullscreen
+            if (isFullscreen) {
+                toggle.style.background = "rgba(255, 255, 255, 0.2)";
+                toggle.style.border = "1px solid rgba(255, 255, 255, 0.3)";
+            } else {
+                toggle.style.background = "transparent";
+                toggle.style.border = "none";
+            }
+        });
+        
+        // Add escape key listener
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && document.fullscreenElement) {
+                document.exitFullscreen();
+            }
+        });
+        
+        // Add double-tap to exit fullscreen on mobile
+        let lastTap = 0;
+        document.addEventListener("touchend", (e) => {
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastTap;
+            
+            if (tapLength < 500 && tapLength > 0 && document.fullscreenElement) {
+                // Double tap detected in fullscreen - check if tap is in top area
+                const tapY = e.changedTouches[0].clientY;
+                if (tapY < 100) { // Top 100px of screen
+                    document.exitFullscreen();
+                }
+            }
+            lastTap = currentTime;
         });
     }
     
@@ -482,24 +518,14 @@ class CalendarNavigator {
                     <div class="shade-option" data-shade="5"></div>
                 </div>
                 <div class="chat-input-row">
+                    <button class="chat-button camera">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                            <circle cx="12" cy="13" r="4"></circle>
+                        </svg>
+                    </button>
                     <div class="chat-input-wrapper">
                         <textarea class="chat-input" placeholder="Type a message..." rows="1"></textarea>
-                    </div>
-                    <div class="chat-buttons">
-                        <button class="chat-button camera">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                                <circle cx="12" cy="13" r="4"></circle>
-                            </svg>
-                        </button>
-                        <button class="chat-button audio">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                                <line x1="12" y1="19" x2="12" y2="23"></line>
-                                <line x1="8" y1="23" x2="16" y2="23"></line>
-                            </svg>
-                        </button>
                         <button class="chat-button send">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -507,6 +533,14 @@ class CalendarNavigator {
                             </svg>
                         </button>
                     </div>
+                    <button class="chat-button audio">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                        </svg>
+                    </button>
                 </div>
             </div>
             <input type="file" class="hidden-file-input" accept="image/*" capture="environment">
@@ -590,7 +624,7 @@ class CalendarNavigator {
         
         // Also listen for input focus events
         document.addEventListener('focusin', (e) => {
-            if (e.target.matches('.chat-input')) {
+            if (e.target.matches('.chat-input') && !this.isDragging) {
                 setTimeout(() => this.handleKeyboardShow(), 300);
             }
         });
@@ -603,6 +637,11 @@ class CalendarNavigator {
     }
     
     handleViewportChange() {
+        // Don't handle viewport changes during drag
+        if (this.isDragging) {
+            return;
+        }
+        
         const currentHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
         const heightDiff = this.originalViewportHeight - currentHeight;
         
@@ -614,6 +653,11 @@ class CalendarNavigator {
     }
     
     handleKeyboardShow(keyboardHeight = null) {
+        // Don't show keyboard during drag operations
+        if (this.dragMode) {
+            return;
+        }
+        
         const chatOverlay = this.chatOverlay;
         if (chatOverlay && chatOverlay.classList.contains('active')) {
             chatOverlay.classList.add('keyboard-open');
@@ -1253,6 +1297,15 @@ class CalendarNavigator {
         
         // Prevent other touch events during drag
         document.body.style.touchAction = "none";
+        
+        // Prevent keyboard from appearing during drag
+        const activeElement = document.activeElement;
+        if (activeElement && activeElement.blur) {
+            activeElement.blur();
+        }
+        
+        // Disable keyboard handling during drag
+        this.dragMode = true;
     }
     
     endNoteDrag(noteEl, note, x, y) {
@@ -1275,6 +1328,9 @@ class CalendarNavigator {
         
         // Re-enable touch events
         document.body.style.touchAction = "auto";
+        
+        // Re-enable keyboard handling
+        this.dragMode = false;
     }
     
     showRecycleBin() {

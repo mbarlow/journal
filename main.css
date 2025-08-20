@@ -3,6 +3,7 @@
     padding: 0;
     box-sizing: border-box;
     user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -90,6 +91,14 @@ body {
 
 .fullscreen-toggle:hover {
     opacity: 0.8;
+}
+
+.fullscreen-toggle:focus {
+    outline: none;
+}
+
+.fullscreen-toggle:active {
+    outline: none;
 }
 
 .content {
@@ -300,7 +309,7 @@ body {
 
 .chat-input-row {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     align-items: flex-end;
 }
 
@@ -314,7 +323,8 @@ body {
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 22px;
-    padding: 12px 16px;
+    padding: 12px 16px 12px 16px;
+    padding-right: 45px;
     color: rgba(255, 255, 255, 0.95);
     font-size: 15px;
     line-height: 1.4;
@@ -336,70 +346,86 @@ body {
     color: rgba(255, 255, 255, 0.4);
 }
 
-.chat-buttons {
-    display: flex;
-    gap: 6px;
-    align-items: flex-end;
-}
-
 .chat-button {
-    width: 44px;
     height: 44px;
-    border-radius: 22px;
     border: none;
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.8);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
-    padding: 0;
+    padding: 0 8px;
+    flex-shrink: 0;
 }
 
 .chat-button svg {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
 }
 
 .chat-button:hover {
-    background: rgba(255, 255, 255, 0.15);
-    transform: scale(1.05);
+    color: rgba(255, 255, 255, 0.9);
+    transform: scale(1.1);
 }
 
 .chat-button:active {
-    transform: scale(0.95);
+    transform: scale(0.9);
 }
 
 .chat-button.send {
-    background: #007AFF;
-    color: #fff;
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    color: #007AFF;
+    border-radius: 0;
+    padding: 0;
 }
 
 .chat-button.send:hover {
-    background: #0056CC;
+    color: #0056CC;
+    transform: translateY(-50%) scale(1.1);
+}
+
+.chat-button.send:active {
+    transform: translateY(-50%) scale(0.9);
+}
+
+.chat-button.camera,
+.chat-button.audio {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.chat-button.camera:hover,
+.chat-button.audio:hover {
+    color: rgba(255, 255, 255, 1);
 }
 
 .shade-selector {
     display: flex;
-    gap: 8px;
-    padding: 5px 0;
+    gap: 6px;
+    padding: 4px 0;
     justify-content: center;
 }
 
 .shade-option {
-    width: 30px;
-    height: 30px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     cursor: pointer;
-    border: 2px solid transparent;
+    border: 1.5px solid transparent;
     transition: all 0.2s ease;
 }
 
 .shade-option:hover,
 .shade-option.selected {
     border-color: #fff;
-    transform: scale(1.1);
+    transform: scale(1.15);
 }
 
 .shade-option[data-shade="1"] { background: rgba(255, 255, 255, 0.1); }

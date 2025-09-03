@@ -59,24 +59,22 @@ class CalendarNavigator {
     navigateForward() {
         switch (this.level) {
             case "day":
-                this.currentDate.setDate(
-                    this.currentDate.getDate() + 1,
-                );
+                this.currentDate.setDate(this.currentDate.getDate() + 1);
                 break;
             case "week":
-                this.currentWeekStart.setDate(
-                    this.currentWeekStart.getDate() + 7,
-                );
+                // Move current date forward a week, then recalculate week start
+                this.currentDate.setDate(this.currentDate.getDate() + 7);
+                this.currentWeekStart = this.getWeekStart(this.currentDate);
                 break;
             case "month":
-                this.currentMonth.setMonth(
-                    this.currentMonth.getMonth() + 1,
-                );
+                // Move current date forward a month, then recalculate month start
+                this.currentDate.setMonth(this.currentDate.getMonth() + 1);
+                this.currentMonth = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
                 break;
             case "year":
-                this.currentYear.setFullYear(
-                    this.currentYear.getFullYear() + 1,
-                );
+                // Move current date forward a year
+                this.currentDate.setFullYear(this.currentDate.getFullYear() + 1);
+                this.currentYear = new Date(this.currentDate);
                 break;
         }
         this.render();
@@ -85,24 +83,22 @@ class CalendarNavigator {
     navigateBackward() {
         switch (this.level) {
             case "day":
-                this.currentDate.setDate(
-                    this.currentDate.getDate() - 1,
-                );
+                this.currentDate.setDate(this.currentDate.getDate() - 1);
                 break;
             case "week":
-                this.currentWeekStart.setDate(
-                    this.currentWeekStart.getDate() - 7,
-                );
+                // Move current date backward a week, then recalculate week start
+                this.currentDate.setDate(this.currentDate.getDate() - 7);
+                this.currentWeekStart = this.getWeekStart(this.currentDate);
                 break;
             case "month":
-                this.currentMonth.setMonth(
-                    this.currentMonth.getMonth() - 1,
-                );
+                // Move current date backward a month, then recalculate month start
+                this.currentDate.setMonth(this.currentDate.getMonth() - 1);
+                this.currentMonth = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
                 break;
             case "year":
-                this.currentYear.setFullYear(
-                    this.currentYear.getFullYear() - 1,
-                );
+                // Move current date backward a year
+                this.currentDate.setFullYear(this.currentDate.getFullYear() - 1);
+                this.currentYear = new Date(this.currentDate);
                 break;
         }
         this.render();
@@ -112,13 +108,12 @@ class CalendarNavigator {
         switch (this.level) {
             case "day":
                 this.level = "week";
-                this.currentWeekStart = this.getWeekStart(
-                    this.currentDate,
-                );
+                this.currentWeekStart = this.getWeekStart(this.currentDate);
                 break;
             case "week":
                 this.level = "month";
-                this.currentMonth = new Date(this.currentWeekStart);
+                // Use currentDate to determine month, not currentWeekStart
+                this.currentMonth = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
                 break;
             case "month":
                 this.level = "year";
@@ -136,13 +131,13 @@ class CalendarNavigator {
                 break;
             case "month":
                 this.level = "week";
-                this.currentWeekStart = this.getWeekStart(
-                    this.currentMonth,
-                );
+                // Use currentDate to determine week, not currentMonth (day 1)
+                this.currentWeekStart = this.getWeekStart(this.currentDate);
                 break;
             case "year":
                 this.level = "month";
-                this.currentMonth = new Date(this.currentYear);
+                // Use currentDate to determine month, not currentYear (Jan 1)
+                this.currentMonth = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
                 break;
         }
         this.render();

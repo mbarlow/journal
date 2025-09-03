@@ -204,18 +204,21 @@ class UIRenderer {
             let mediaIndicators = '';
             if (noteManager && isCurrentMonth) {
                 const dayNotes = noteManager.getNotesForDate(day);
-                if (dayNotes.length > 0) {
+                
+                // Only show indicators for user-created content (not verses)
+                const userNotes = dayNotes.filter(note => note.type !== 'verse');
+                
+                if (userNotes.length > 0) {
                     mediaIndicators = '<div class="media-indicators">';
                     
                     // Track what types we have and their positions
                     const types = {
                         text: { found: false, position: 'top-left' },
                         image: { found: false, position: 'top-right' },
-                        audio: { found: false, position: 'bottom-left' },
-                        verse: { found: false, position: 'bottom-right' }
+                        audio: { found: false, position: 'bottom-left' }
                     };
                     
-                    dayNotes.forEach(note => {
+                    userNotes.forEach(note => {
                         if (types[note.type]) {
                             types[note.type].found = true;
                         }

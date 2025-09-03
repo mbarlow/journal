@@ -98,7 +98,7 @@ class UIRenderer {
         });
     }
 
-    renderMonth(currentMonth, clickCallback) {
+    renderMonth(currentMonth, clickCallback, noteManager = null) {
         const monthNames = [
             "Jan",
             "Feb",
@@ -139,8 +139,41 @@ class UIRenderer {
                 day.getMonth() === currentMonth.getMonth();
             const isToday = this.isSameDay(day, new Date());
 
+            // Get media indicators for this day
+            let mediaIndicators = '';
+            if (noteManager && isCurrentMonth) {
+                const dayNotes = noteManager.getNotesForDate(day);
+                if (dayNotes.length > 0) {
+                    mediaIndicators = '<div class="media-indicators">';
+                    
+                    // Track what types we have and their positions
+                    const types = {
+                        text: { found: false, position: 'top-left' },
+                        image: { found: false, position: 'top-right' },
+                        audio: { found: false, position: 'bottom-left' },
+                        verse: { found: false, position: 'bottom-right' }
+                    };
+                    
+                    dayNotes.forEach(note => {
+                        if (types[note.type]) {
+                            types[note.type].found = true;
+                        }
+                    });
+                    
+                    // Add indicators for each type found
+                    Object.entries(types).forEach(([type, config]) => {
+                        if (config.found) {
+                            mediaIndicators += `<div class="media-dot media-dot-${type} media-dot-${config.position}"></div>`;
+                        }
+                    });
+                    
+                    mediaIndicators += '</div>';
+                }
+            }
+
             monthHtml += `<div class="month-day ${!isCurrentMonth ? "other-month" : ""} ${isToday ? "current" : ""}" data-date="${day.toISOString()}">
             ${day.getDate()}
+            ${mediaIndicators}
         </div>`;
         }
 

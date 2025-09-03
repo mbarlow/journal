@@ -172,7 +172,7 @@ class CalendarNavigator {
                 this.uiRenderer.renderWeek(this.currentWeekStart, this.currentDate, (date) => this.jumpToDate(date));
                 break;
             case "month":
-                this.uiRenderer.renderMonth(this.currentMonth, (date) => this.jumpToDate(date));
+                this.uiRenderer.renderMonth(this.currentMonth, (date) => this.jumpToDate(date), this.noteManager);
                 break;
             case "year":
                 this.uiRenderer.renderYear(this.currentYear, (date) => this.jumpToDate(date));

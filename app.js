@@ -1,5 +1,7 @@
 import Database from './database.js';
 import TouchHandler from './touch-handler.js';
+import UIRenderer from './ui-renderer.js';
+import MediaHandler from './media-handler.js';
 
 class CalendarNavigator {
     constructor() {
@@ -10,8 +12,6 @@ class CalendarNavigator {
         this.currentYear = null;
         this.notes = new Map(); // Store notes by date key
         this.selectedShade = 1;
-        this.mediaRecorder = null;
-        this.audioChunks = [];
         this.clockInterval = null;
         this.isDragging = false;
         this.draggedNote = null;
@@ -22,6 +22,8 @@ class CalendarNavigator {
         this.pageContent = document.getElementById("pageContent");
 
         this.database = new Database();
+        this.uiRenderer = new UIRenderer(this.headerTitle, this.pageContent);
+        this.mediaHandler = new MediaHandler();
         this.init();
     }
 
@@ -162,202 +164,23 @@ class CalendarNavigator {
         
         switch (this.level) {
             case "day":
-                this.renderDay();
+                this.uiRenderer.renderDay(this.currentDate, () => this.startRealtimeClock());
                 break;
             case "week":
-                this.renderWeek();
+                this.uiRenderer.renderWeek(this.currentWeekStart, this.currentDate, (date) => this.jumpToDate(date));
                 break;
             case "month":
-                this.renderMonth();
+                this.uiRenderer.renderMonth(this.currentMonth, (date) => this.jumpToDate(date));
                 break;
             case "year":
-                this.renderYear();
+                this.uiRenderer.renderYear(this.currentYear, (date) => this.jumpToDate(date));
                 break;
         }
     }
 
-    renderDay() {
-        const dayNames = [
-            "Sunday",
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-        ];
-        const monthNames = [
-            "January",
-            "February",
-            "March",
-            "April",
-            "May",
-            "June",
-            "July",
-            "August",
-            "September",
-            "October",
-            "November",
-            "December",
-        ];
 
-        this.headerTitle.textContent = ``;
 
-        this.pageContent.innerHTML = `
-        <div class="day-view">
-            <div class="realtime-clock" id="realtimeClock"></div>
-            <div class="day-number">${this.currentDate.getDate()}</div>
-            <div class="day-name">${dayNames[this.currentDate.getDay()]}</div>
-            <div class="month-year">${monthNames[this.currentDate.getMonth()]} ${this.currentDate.getFullYear()}</div>
-        </div>
-    `;
-        
-        // Start the clock after rendering
-        this.startRealtimeClock();
-    }
 
-    renderWeek() {
-        const monthNames = [
-            "Jan",
-            "Feb",
-            "Mar",
-            "Apr",
-            "May",
-            "Jun",
-            "Jul",
-            "Aug",
-            "Sep",
-            "Oct",
-            "Nov",
-            "Dec",
-        ];
-
-        const weekEnd = new Date(this.currentWeekStart);
-        weekEnd.setDate(weekEnd.getDate() + 6);
-
-        this.headerTitle.textContent = `${this.currentWeekStart.getFullYear()} ${monthNames[this.currentWeekStart.getMonth()]}`;
-
-        let weekHtml =
-            '<div class="week-view"><div class="week-grid">';
-
-        for (let i = 0; i < 7; i++) {
-            const day = new Date(this.currentWeekStart);
-            day.setDate(day.getDate() + i);
-            const isToday = this.isSameDay(day, new Date());
-            const isCurrent = this.isSameDay(day, this.currentDate);
-
-            weekHtml += `<div class="week-day ${isToday || isCurrent ? "current" : ""}" data-date="${day.toISOString()}">
-            ${day.getDate()}
-        </div>`;
-        }
-
-        weekHtml += "</div></div>";
-        this.pageContent.innerHTML = weekHtml;
-        
-        // Add click handlers for week days
-        this.pageContent.querySelectorAll('.week-day').forEach(dayEl => {
-            dayEl.addEventListener('click', (e) => {
-                const date = new Date(e.target.dataset.date);
-                this.jumpToDate(date);
-            });
-        });
-    }
-
-    renderMonth() {
-        const monthNames = [
-            "Jan",
-            "Feb",
-            "Mar",
-            "Apr",
-            "May",
-            "Jun",
-            "Jul",
-            "Aug",
-            "Sep",
-            "Oct",
-            "Nov",
-            "Dec",
-        ];
-
-        this.headerTitle.textContent = `${this.currentMonth.getFullYear()} ${monthNames[this.currentMonth.getMonth()]}`;
-
-        const firstDay = new Date(
-            this.currentMonth.getFullYear(),
-            this.currentMonth.getMonth(),
-            1,
-        );
-        const lastDay = new Date(
-            this.currentMonth.getFullYear(),
-            this.currentMonth.getMonth() + 1,
-            0,
-        );
-        const startDate = new Date(firstDay);
-        startDate.setDate(startDate.getDate() - firstDay.getDay());
-
-        let monthHtml =
-            '<div class="month-view"><div class="month-grid">';
-
-        for (let i = 0; i < 42; i++) {
-            const day = new Date(startDate);
-            day.setDate(startDate.getDate() + i);
-            const isCurrentMonth =
-                day.getMonth() === this.currentMonth.getMonth();
-            const isToday = this.isSameDay(day, new Date());
-
-            monthHtml += `<div class="month-day ${!isCurrentMonth ? "other-month" : ""} ${isToday ? "current" : ""}" data-date="${day.toISOString()}">
-            ${day.getDate()}
-        </div>`;
-        }
-
-        monthHtml += "</div></div>";
-        this.pageContent.innerHTML = monthHtml;
-        
-        // Add click handlers for month days
-        this.pageContent.querySelectorAll('.month-day:not(.other-month)').forEach(dayEl => {
-            dayEl.addEventListener('click', (e) => {
-                const date = new Date(e.target.dataset.date);
-                this.jumpToDate(date);
-            });
-        });
-    }
-
-    renderYear() {
-        this.headerTitle.textContent = `${this.currentYear.getFullYear()}`;
-
-        let yearHtml =
-            '<div class="year-view"><div class="year-grid">';
-
-        const year = this.currentYear.getFullYear();
-        const today = new Date();
-        const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
-        const daysInYear = isLeapYear ? 366 : 365;
-
-        for (let i = 0; i < daysInYear; i++) {
-            const day = new Date(year, 0, 1 + i);
-            const isToday = this.isSameDay(day, today);
-
-            yearHtml += `<div class="year-day ${isToday ? "current" : ""}" data-date="${day.toISOString()}" title="${day.toDateString()}"></div>`;
-        }
-
-        yearHtml += "</div></div>";
-        this.pageContent.innerHTML = yearHtml;
-        
-        // Add click handlers for year days
-        this.pageContent.querySelectorAll('.year-day').forEach(dayEl => {
-            dayEl.addEventListener('click', (e) => {
-                const date = new Date(e.target.dataset.date);
-                this.jumpToDate(date);
-            });
-        });
-    }
-
-    isSameDay(date1, date2) {
-        return (
-            date1.getDate() === date2.getDate() &&
-            date1.getMonth() === date2.getMonth() &&
-            date1.getFullYear() === date2.getFullYear()
-        );
-    }
     
     jumpToDate(date) {
         this.currentDate = new Date(date);
@@ -496,17 +319,29 @@ class CalendarNavigator {
         fileInput.addEventListener("change", (e) => {
             const file = e.target.files[0];
             if (file) {
-                this.processImage(file);
+                this.mediaHandler.processImage(file, (content, type) => {
+                    this.createNote(content, type);
+                    this.closeChatInput();
+                });
             }
         });
         
         // Audio recording
         const audioButton = chatOverlay.querySelector(".audio");
         audioButton.addEventListener("click", () => {
-            if (this.mediaRecorder && this.mediaRecorder.state === "recording") {
-                this.stopRecording();
+            if (this.mediaHandler.isRecording()) {
+                this.mediaHandler.stopRecording(audioButton);
             } else {
-                this.startRecording();
+                this.mediaHandler.startRecording(
+                    audioButton,
+                    (content, type) => {
+                        this.createNote(content, type);
+                        this.closeChatInput();
+                    },
+                    (message) => {
+                        this.mediaHandler.showPermissionMessage(message);
+                    }
+                );
             }
         });
         
@@ -611,38 +446,6 @@ class CalendarNavigator {
         this.chatOverlay.querySelector(".chat-input").style.height = "auto";
     }
     
-    processImage(file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const originalDataUrl = e.target.result;
-            const img = new Image();
-            img.onload = () => {
-                // Create low-res thumbnail for display on the page
-                const canvas = document.createElement("canvas");
-                const size = 64; // Small size for thumbnail
-                canvas.width = size;
-                canvas.height = size;
-                const ctx = canvas.getContext("2d");
-                
-                // Draw and pixelate
-                ctx.imageSmoothingEnabled = false;
-                ctx.drawImage(img, 0, 0, size, size);
-                
-                const thumbnailUrl = canvas.toDataURL("image/jpeg", 0.7);
-                
-                // Store both thumbnail and original
-                const imageData = {
-                    thumbnail: thumbnailUrl,
-                    original: originalDataUrl
-                };
-                
-                this.createNote(JSON.stringify(imageData), "image");
-                this.closeChatInput();
-            };
-            img.src = originalDataUrl;
-        };
-        reader.readAsDataURL(file);
-    }
     
     createNote(content, type) {
         const dateKey = this.getDateKey(this.currentDate);
@@ -908,135 +711,8 @@ class CalendarNavigator {
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     }
     
-    async startRecording() {
-        try {
-            // First check if mediaDevices is available
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                this.showPermissionMessage("Your browser doesn't support audio recording. Please use a modern browser.");
-                return;
-            }
-            
-            // Check current permission state if available
-            if (navigator.permissions && navigator.permissions.query) {
-                try {
-                    const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
-                    
-                    if (permissionStatus.state === 'denied') {
-                        this.showPermissionMessage("Microphone access denied. Please enable microphone permissions in your browser settings and reload the page.");
-                        return;
-                    }
-                } catch (e) {
-                    // Permissions API might not support microphone query, continue anyway
-                }
-            }
-            
-            // Request microphone access
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    sampleRate: 44100
-                }
-            });
-            
-            this.mediaRecorder = new MediaRecorder(stream);
-            this.audioChunks = [];
-            
-            this.mediaRecorder.ondataavailable = (e) => {
-                this.audioChunks.push(e.data);
-            };
-            
-            this.mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-                const reader = new FileReader();
-                reader.onload = () => {
-                    this.createNote(reader.result, "audio");
-                    this.closeChatInput();
-                };
-                reader.readAsDataURL(audioBlob);
-                
-                // Stop all tracks
-                stream.getTracks().forEach(track => track.stop());
-            };
-            
-            this.mediaRecorder.start();
-            this.audioButton.innerHTML = `
-                <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                    <rect x="6" y="4" width="12" height="16" rx="2"></rect>
-                </svg>
-            `;
-            this.audioButton.style.background = "rgba(255, 0, 0, 0.3)";
-            
-        } catch (error) {
-            console.error("Error accessing microphone:", error);
-            
-            let message = "Could not access microphone. ";
-            
-            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-                message += "Please allow microphone access when prompted. If you previously denied access, go to your browser settings to enable it.";
-            } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-                message += "No microphone found. Please connect a microphone and try again.";
-            } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-                message += "Microphone is already in use by another application.";
-            } else if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') {
-                message += "Could not configure microphone with the requested settings.";
-            } else if (error.name === 'NotSupportedError') {
-                message += "Audio recording is not supported in this browser or context. Note: microphone access requires HTTPS or localhost.";
-            } else {
-                message += error.message || "Please check your browser settings.";
-            }
-            
-            this.showPermissionMessage(message);
-        }
-    }
     
-    showPermissionMessage(message) {
-        // Create a temporary message overlay
-        const messageEl = document.createElement("div");
-        messageEl.className = "permission-message";
-        messageEl.innerHTML = `
-            <div class="permission-message-content">
-                <div class="permission-message-icon">🎤</div>
-                <div class="permission-message-text">${message}</div>
-                <button class="permission-message-close">OK</button>
-            </div>
-        `;
-        
-        document.body.appendChild(messageEl);
-        
-        // Show with animation
-        setTimeout(() => {
-            messageEl.classList.add("active");
-        }, 10);
-        
-        // Close handler
-        const close = () => {
-            messageEl.classList.remove("active");
-            setTimeout(() => {
-                messageEl.remove();
-            }, 300);
-        };
-        
-        messageEl.querySelector(".permission-message-close").addEventListener("click", close);
-        
-        // Auto-close after 10 seconds
-        setTimeout(close, 10000);
-    }
     
-    stopRecording() {
-        if (this.mediaRecorder && this.mediaRecorder.state === "recording") {
-            this.mediaRecorder.stop();
-            this.audioButton.innerHTML = `
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                    <line x1="12" y1="19" x2="12" y2="23"></line>
-                    <line x1="8" y1="23" x2="16" y2="23"></line>
-                </svg>
-            `;
-            this.audioButton.style.background = "rgba(255, 255, 255, 0.1)";
-        }
-    }
     
     async addDailyVerse(dateKey) {
         // Check if verse already exists for this day

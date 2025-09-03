@@ -2,6 +2,7 @@ import Database from './database.js';
 import TouchHandler from './touch-handler.js';
 import UIRenderer from './ui-renderer.js';
 import MediaHandler from './media-handler.js';
+import NoteManager from './note-manager.js';
 
 class CalendarNavigator {
     constructor() {
@@ -10,18 +11,15 @@ class CalendarNavigator {
         this.currentWeekStart = null;
         this.currentMonth = null;
         this.currentYear = null;
-        this.notes = new Map(); // Store notes by date key
         this.selectedShade = 1;
         this.clockInterval = null;
-        this.isDragging = false;
-        this.draggedNote = null;
-        this.dragOffset = { x: 0, y: 0 };
 
         this.container = document.getElementById("container");
         this.headerTitle = document.getElementById("headerTitle");
         this.pageContent = document.getElementById("pageContent");
 
         this.database = new Database();
+        this.noteManager = new NoteManager(this.database);
         this.uiRenderer = new UIRenderer(this.headerTitle, this.pageContent);
         this.mediaHandler = new MediaHandler();
         this.init();
@@ -30,7 +28,8 @@ class CalendarNavigator {
     async init() {
         try {
             await this.database.init();
-            this.loadNotes();
+            await this.noteManager.loadNotes();
+            this.renderNotes();
         } catch (error) {
             console.error("Failed to initialize database:", error);
         }
@@ -305,7 +304,8 @@ class CalendarNavigator {
         chatOverlay.querySelector(".send").addEventListener("click", () => {
             const text = textarea.value.trim();
             if (text) {
-                this.createNote(text, "text");
+                this.noteManager.createNote(this.currentDate, text, "text", this.selectedShade, this.currentLongPressPosition);
+                this.renderNotes();
                 this.closeChatInput();
             }
         });
@@ -320,7 +320,8 @@ class CalendarNavigator {
             const file = e.target.files[0];
             if (file) {
                 this.mediaHandler.processImage(file, (content, type) => {
-                    this.createNote(content, type);
+                    this.noteManager.createNote(this.currentDate, content, type, this.selectedShade, this.currentLongPressPosition);
+                    this.renderNotes();
                     this.closeChatInput();
                 });
             }
@@ -335,7 +336,8 @@ class CalendarNavigator {
                 this.mediaHandler.startRecording(
                     audioButton,
                     (content, type) => {
-                        this.createNote(content, type);
+                        this.noteManager.createNote(this.currentDate, content, type, this.selectedShade, this.currentLongPressPosition);
+                        this.renderNotes();
                         this.closeChatInput();
                     },
                     (message) => {
@@ -447,160 +449,20 @@ class CalendarNavigator {
     }
     
     
-    createNote(content, type) {
-        const dateKey = this.getDateKey(this.currentDate);
-        const id = `${dateKey}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        // Generate title from content hash
-        const title = this.generateTitle(content);
-        
-        const note = {
-            id,
-            date: dateKey,
-            content,
-            type,
-            title,
-            shade: this.selectedShade,
-            x: this.currentLongPressPosition?.x || window.innerWidth / 2,
-            y: this.currentLongPressPosition?.y || window.innerHeight / 2,
-            timestamp: Date.now()
-        };
-        
-        // Add to memory
-        if (!this.notes.has(dateKey)) {
-            this.notes.set(dateKey, []);
-        }
-        this.notes.get(dateKey).push(note);
-        
-        // Save to IndexedDB
-        this.saveNote(note);
-        
-        // Re-render to show new note
-        this.renderNotes();
-    }
-    
-    generateTitle(content) {
-        // Simple hash function
-        let hash = 0;
-        const str = typeof content === "string" ? content : "image";
-        for (let i = 0; i < str.length; i++) {
-            const char = str.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash;
-        }
-        return Math.abs(hash).toString(36).substring(0, 6).toUpperCase();
-    }
-    
-    saveNote(note) {
-        this.database.saveNote(note).catch(error => {
-            console.error("Failed to save note:", error);
-        });
-    }
-    
-    async loadNotes() {
-        try {
-            const notes = await this.database.loadAllNotes();
-            this.notes.clear();
-            
-            notes.forEach(note => {
-                if (!this.notes.has(note.date)) {
-                    this.notes.set(note.date, []);
-                }
-                this.notes.get(note.date).push(note);
-            });
-            
-            this.renderNotes();
-        } catch (error) {
-            console.error("Failed to load notes:", error);
-        }
-    }
-    
     renderNotes() {
-        // Always clear notes from DOM first
-        document.querySelectorAll(".sticky-note, .photo-note, .audio-note, .verse-note").forEach(el => el.remove());
-        
-        if (this.level !== "day") return;
-        
-        const dateKey = this.getDateKey(this.currentDate);
-        const dayNotes = this.notes.get(dateKey) || [];
-        
-        dayNotes.forEach(note => {
-            if (note.type === "text") {
-                const noteEl = document.createElement("div");
-                noteEl.className = `sticky-note shade-${note.shade}`;
-                noteEl.style.left = `${note.x}px`;
-                noteEl.style.top = `${note.y}px`;
-                noteEl.innerHTML = `
-                    <div class="sticky-note-title">${note.title}</div>
-                    <div class="sticky-note-preview">${note.content}</div>
-                `;
-                noteEl.addEventListener("click", (e) => {
-                    if (!this.isDragging) {
-                        this.showNoteDetail(note);
-                    }
-                });
-                this.setupNoteDragHandlers(noteEl, note);
-                this.container.appendChild(noteEl);
-            } else if (note.type === "image") {
-                const noteEl = document.createElement("div");
-                noteEl.className = "photo-note";
-                noteEl.style.left = `${note.x}px`;
-                noteEl.style.top = `${note.y}px`;
-                
-                // Handle both old and new image format
-                let thumbnailSrc;
-                try {
-                    const imageData = JSON.parse(note.content);
-                    thumbnailSrc = imageData.thumbnail;
-                } catch {
-                    // Old format - use content as is
-                    thumbnailSrc = note.content;
-                }
-                
-                noteEl.innerHTML = `<img src="${thumbnailSrc}" alt="Photo">`;
-                noteEl.addEventListener("click", (e) => {
-                    if (!this.isDragging) {
-                        this.showImageFullPage(note);
-                    }
-                });
-                this.setupNoteDragHandlers(noteEl, note);
-                this.container.appendChild(noteEl);
-            } else if (note.type === "audio") {
-                const noteEl = document.createElement("div");
-                noteEl.className = "audio-note";
-                noteEl.style.left = `${note.x}px`;
-                noteEl.style.top = `${note.y}px`;
-                noteEl.innerHTML = `
-                    <div class="audio-note-icon">🎵</div>
-                    <div class="audio-note-title">${note.title}</div>
-                `;
-                noteEl.addEventListener("click", (e) => {
-                    if (!this.isDragging) {
-                        this.showNoteDetail(note);
-                    }
-                });
-                this.setupNoteDragHandlers(noteEl, note);
-                this.container.appendChild(noteEl);
-            } else if (note.type === "verse") {
-                const noteEl = document.createElement("div");
-                noteEl.className = `verse-note ${note.read ? 'read' : 'unread'}`;
-                noteEl.style.left = `${note.x}px`;
-                noteEl.style.top = `${note.y}px`;
-                noteEl.innerHTML = `
-                    <div class="verse-content">${note.title}</div>
-                `;
-                noteEl.addEventListener("click", (e) => {
-                    if (!this.isDragging) {
-                        this.markVerseAsRead(note);
-                        this.showNoteDetail(note);
-                    }
-                });
-                this.setupNoteDragHandlers(noteEl, note);
-                this.container.appendChild(noteEl);
-            }
+        this.noteManager.renderNotes(this.container, this.currentDate, this.level, {
+            onNoteClick: (note) => this.showNoteDetail(note),
+            onImageClick: (note) => this.showImageFullPage(note),
+            onDeleteNote: (note) => {
+                this.noteManager.deleteNote(this.currentDate, note);
+                this.renderNotes();
+            },
+            onDragStart: () => {},
+            onDragEnd: () => {}
         });
         
         // Add daily verse if not already present
+        const dateKey = this.noteManager.getDateKey(this.currentDate);
         this.addDailyVerse(dateKey);
     }
     
@@ -707,44 +569,32 @@ class CalendarNavigator {
         });
     }
     
-    getDateKey(date) {
-        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    }
     
     
     
     
     async addDailyVerse(dateKey) {
         // Check if verse already exists for this day
-        const dayNotes = this.notes.get(dateKey) || [];
+        const dayNotes = this.noteManager.getNotesForDate(this.currentDate);
         const existingVerse = dayNotes.find(note => note.type === "verse");
         if (existingVerse) return;
         
         // Get verse for this date
         const verse = await this.getDailyVerse(dateKey);
         
-        // Create verse note at a fixed position (top center)
-        const verseNote = {
-            id: `${dateKey}_verse_${Date.now()}`,
-            date: dateKey,
-            content: verse.text,
-            reference: verse.reference,
-            type: "verse",
-            title: verse.reference,
-            x: window.innerWidth / 2 - 100, // Center horizontally
-            y: 150, // Fixed top position
-            timestamp: Date.now(),
-            read: false
-        };
+        // Create verse note
+        const verseNote = this.noteManager.createNote(
+            this.currentDate,
+            verse.text,
+            "verse",
+            1,
+            { x: window.innerWidth / 2 - 100, y: 150 }
+        );
         
-        // Add to memory
-        if (!this.notes.has(dateKey)) {
-            this.notes.set(dateKey, []);
-        }
-        this.notes.get(dateKey).push(verseNote);
-        
-        // Save to IndexedDB
-        this.saveNote(verseNote);
+        // Add reference property
+        verseNote.reference = verse.reference;
+        verseNote.read = false;
+        this.noteManager.database.updateNote(verseNote);
         
         // Re-render to show verse
         this.renderNotes();
@@ -770,22 +620,6 @@ class CalendarNavigator {
         const index = dateNum % verses.length;
         
         return verses[index];
-    }
-    
-    markVerseAsRead(note) {
-        note.read = true;
-        
-        // Update in IndexedDB
-        this.database.updateNote(note).catch(error => {
-            console.error("Failed to update verse:", error);
-        });
-        
-        // Update visual state
-        const verseEl = document.querySelector(".verse-note");
-        if (verseEl) {
-            verseEl.classList.remove("unread");
-            verseEl.classList.add("read");
-        }
     }
     
     startRealtimeClock() {
@@ -822,174 +656,6 @@ class CalendarNavigator {
         }
     }
     
-    setupNoteDragHandlers(noteEl, note) {
-        let longPressTimer = null;
-        let startX, startY;
-        let startTime;
-        
-        noteEl.addEventListener("touchstart", (e) => {
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
-            startTime = Date.now();
-            
-            // Calculate offset for smooth dragging
-            const rect = noteEl.getBoundingClientRect();
-            this.dragOffset.x = startX - rect.left;
-            this.dragOffset.y = startY - rect.top;
-            
-            longPressTimer = setTimeout(() => {
-                this.startNoteDrag(noteEl, note, startX, startY);
-            }, 500);
-        });
-        
-        noteEl.addEventListener("touchmove", (e) => {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-            
-            if (this.isDragging && this.draggedNote === note) {
-                e.preventDefault();
-                const touch = e.touches[0];
-                const newX = touch.clientX - this.dragOffset.x;
-                const newY = touch.clientY - this.dragOffset.y;
-                
-                noteEl.style.left = `${newX}px`;
-                noteEl.style.top = `${newY}px`;
-                
-                // Check if over recycle bin
-                this.checkRecycleBinHover(touch.clientX, touch.clientY);
-            }
-        });
-        
-        noteEl.addEventListener("touchend", (e) => {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-            
-            if (this.isDragging && this.draggedNote === note) {
-                const touch = e.changedTouches[0];
-                this.endNoteDrag(noteEl, note, touch.clientX, touch.clientY);
-            }
-        });
-    }
-    
-    startNoteDrag(noteEl, note, x, y) {
-        this.isDragging = true;
-        this.draggedNote = note;
-        noteEl.classList.add("dragging");
-        
-        // Show recycle bin
-        this.showRecycleBin();
-        
-        // Prevent other touch events during drag
-        document.body.style.touchAction = "none";
-        
-        // Prevent keyboard from appearing during drag
-        const activeElement = document.activeElement;
-        if (activeElement && activeElement.blur) {
-            activeElement.blur();
-        }
-        
-        // Disable keyboard handling during drag
-        this.dragMode = true;
-    }
-    
-    endNoteDrag(noteEl, note, x, y) {
-        this.isDragging = false;
-        this.draggedNote = null;
-        noteEl.classList.remove("dragging");
-        
-        // Check if dropped on recycle bin
-        if (this.isOverRecycleBin(x, y)) {
-            this.deleteNote(note);
-        } else {
-            // Update note position
-            const newX = parseInt(noteEl.style.left);
-            const newY = parseInt(noteEl.style.top);
-            this.updateNotePosition(note, newX, newY);
-        }
-        
-        // Hide recycle bin
-        this.hideRecycleBin();
-        
-        // Re-enable touch events
-        document.body.style.touchAction = "auto";
-        
-        // Re-enable keyboard handling
-        this.dragMode = false;
-    }
-    
-    showRecycleBin() {
-        let recycleBin = document.getElementById("recycleBin");
-        if (!recycleBin) {
-            recycleBin = document.createElement("div");
-            recycleBin.id = "recycleBin";
-            recycleBin.className = "recycle-bin";
-            recycleBin.innerHTML = `
-                <div class="recycle-bin-icon">🗑️</div>
-                <div class="recycle-bin-text">Drop to delete</div>
-            `;
-            document.body.appendChild(recycleBin);
-        }
-        recycleBin.classList.add("visible");
-    }
-    
-    hideRecycleBin() {
-        const recycleBin = document.getElementById("recycleBin");
-        if (recycleBin) {
-            recycleBin.classList.remove("visible", "hover");
-        }
-    }
-    
-    checkRecycleBinHover(x, y) {
-        const recycleBin = document.getElementById("recycleBin");
-        if (recycleBin && this.isOverRecycleBin(x, y)) {
-            recycleBin.classList.add("hover");
-        } else if (recycleBin) {
-            recycleBin.classList.remove("hover");
-        }
-    }
-    
-    isOverRecycleBin(x, y) {
-        const recycleBin = document.getElementById("recycleBin");
-        if (!recycleBin) return false;
-        
-        const rect = recycleBin.getBoundingClientRect();
-        return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-    }
-    
-    updateNotePosition(note, x, y) {
-        // Update note object
-        note.x = x;
-        note.y = y;
-        
-        // Update in IndexedDB
-        this.database.updateNote(note).catch(error => {
-            console.error("Failed to update note position:", error);
-        });
-    }
-    
-    deleteNote(note) {
-        const dateKey = this.getDateKey(this.currentDate);
-        const dayNotes = this.notes.get(dateKey);
-        
-        if (dayNotes) {
-            const index = dayNotes.findIndex(n => n.id === note.id);
-            if (index !== -1) {
-                dayNotes.splice(index, 1);
-            }
-        }
-        
-        // Delete from IndexedDB
-        this.database.deleteNote(note.id).catch(error => {
-            console.error("Failed to delete note:", error);
-        });
-        
-        // Re-render notes
-        this.renderNotes();
-    }
 }
 
 // Initialize the app

@@ -1,4 +1,4 @@
-// media-handler.js
+// src/js/media-handler.js
 // Media recording and processing for camera and audio
 
 class MediaHandler {

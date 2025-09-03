@@ -1,4 +1,4 @@
-// touch-handler.js
+// src/js/touch-handler.js
 // Touch gesture handling for swipe navigation and long press detection
 
 class TouchHandler {

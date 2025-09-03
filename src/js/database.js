@@ -1,4 +1,4 @@
-// database.js
+// src/js/database.js
 // IndexedDB operations for journal notes
 
 class Database {

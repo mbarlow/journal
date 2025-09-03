@@ -1,4 +1,4 @@
-// note-manager.js
+// src/js/note-manager.js
 // Note CRUD operations and rendering
 
 class NoteManager {

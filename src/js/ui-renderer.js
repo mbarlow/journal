@@ -1,4 +1,4 @@
-// ui-renderer.js
+// src/js/ui-renderer.js
 // UI rendering for different calendar views (day, week, month, year)
 
 class UIRenderer {

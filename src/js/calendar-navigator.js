@@ -1,4 +1,4 @@
-// calendar-navigator.js
+// src/js/calendar-navigator.js
 // Main coordinator for journal app - handles navigation, UI coordination, and app initialization
 
 import Database from './database.js';

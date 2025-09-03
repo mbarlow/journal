@@ -1,3 +1,6 @@
+// calendar-navigator.js
+// Main coordinator for journal app - handles navigation, UI coordination, and app initialization
+
 import Database from './database.js';
 import TouchHandler from './touch-handler.js';
 import UIRenderer from './ui-renderer.js';

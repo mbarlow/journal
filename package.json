@@ -1,0 +1,9 @@
+{
+  "name": "journal",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "npx serve -s . --ssl-cert cert.pem --ssl-key key.pem",
+    "dev-http": "npx serve -s .",
+    "dev-simple": "python3 -m http.server 8000"
+  }
+}

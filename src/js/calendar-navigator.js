@@ -6,6 +6,8 @@ import TouchHandler from './touch-handler.js';
 import UIRenderer from './ui-renderer.js';
 import MediaHandler from './media-handler.js';
 import NoteManager from './note-manager.js';
+import ShakeDetector from './shake-detector.js';
+import ExportHandler from './export-handler.js';
 
 class CalendarNavigator {
     constructor() {
@@ -25,6 +27,8 @@ class CalendarNavigator {
         this.noteManager = new NoteManager(this.database);
         this.uiRenderer = new UIRenderer(this.headerTitle, this.pageContent);
         this.mediaHandler = new MediaHandler();
+        this.exportHandler = new ExportHandler(this.noteManager);
+        this.shakeDetector = null;
         this.init();
     }
 
@@ -154,6 +158,11 @@ class CalendarNavigator {
         // Stop clock when leaving day view
         if (this.level !== "day") {
             this.stopRealtimeClock();
+            // Destroy shake detector when leaving day view
+            if (this.shakeDetector) {
+                this.shakeDetector.destroy();
+                this.shakeDetector = null;
+            }
         }
         
         // Always call renderNotes to clear notes when not in day view
@@ -162,6 +171,12 @@ class CalendarNavigator {
         switch (this.level) {
             case "day":
                 this.uiRenderer.renderDay(this.currentDate, () => this.startRealtimeClock());
+                // Initialize shake detector for day view
+                if (!this.shakeDetector) {
+                    this.shakeDetector = new ShakeDetector(() => {
+                        this.exportHandler.exportDay(this.currentDate);
+                    });
+                }
                 break;
             case "week":
                 const weekCallback = (date) => this.jumpToDate(date);

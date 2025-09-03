@@ -1,3 +1,6 @@
+import Database from './database.js';
+import TouchHandler from './touch-handler.js';
+
 class CalendarNavigator {
     constructor() {
         this.currentDate = new Date();
@@ -6,8 +9,6 @@ class CalendarNavigator {
         this.currentMonth = null;
         this.currentYear = null;
         this.notes = new Map(); // Store notes by date key
-        this.longPressTimer = null;
-        this.longPressPosition = { x: 0, y: 0 };
         this.selectedShade = 1;
         this.mediaRecorder = null;
         this.audioChunks = [];
@@ -20,102 +21,36 @@ class CalendarNavigator {
         this.headerTitle = document.getElementById("headerTitle");
         this.pageContent = document.getElementById("pageContent");
 
-        this.setupTouchHandlers();
+        this.database = new Database();
+        this.init();
+    }
+
+    async init() {
+        try {
+            await this.database.init();
+            this.loadNotes();
+        } catch (error) {
+            console.error("Failed to initialize database:", error);
+        }
+
+        this.setupTouchHandler();
         this.setupFullscreen();
-        this.setupIndexedDB();
         this.setupChatInput();
         this.setupKeyboardHandling();
         this.render();
     }
 
-    setupTouchHandlers() {
-        let startX, startY, startTime;
-        let isLongPress = false;
-
-        this.container.addEventListener("touchstart", (e) => {
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
-            startTime = Date.now();
-            
-            // Long press detection for day view
-            if (this.level === "day") {
-                isLongPress = false;
-                this.longPressPosition = { x: startX, y: startY };
-                this.longPressTimer = setTimeout(() => {
-                    isLongPress = true;
-                    this.openChatInput();
-                }, 500); // 500ms for long press
-            }
-        });
-        
-        this.container.addEventListener("touchmove", () => {
-            // Cancel long press if user moves
-            if (this.longPressTimer) {
-                clearTimeout(this.longPressTimer);
-                this.longPressTimer = null;
-            }
-        });
-
-        this.container.addEventListener("touchend", (e) => {
-            // Clear long press timer
-            if (this.longPressTimer) {
-                clearTimeout(this.longPressTimer);
-                this.longPressTimer = null;
-            }
-            
-            if (isLongPress) {
-                isLongPress = false;
-                return; // Don't process swipes after long press
-            }
-            
-            if (!startX || !startY) return;
-
-            const endX = e.changedTouches[0].clientX;
-            const endY = e.changedTouches[0].clientY;
-            const deltaX = endX - startX;
-            const deltaY = endY - startY;
-            const deltaTime = Date.now() - startTime;
-
-            // Minimum swipe distance and maximum time
-            if (Math.abs(deltaX) < 50 && Math.abs(deltaY) < 50)
-                return;
-            if (deltaTime > 300) return;
-
-            if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                // Horizontal swipe
-                if (deltaX > 0) {
-                    this.handleSwipeRight();
-                } else {
-                    this.handleSwipeLeft();
-                }
-            } else {
-                // Vertical swipe
-                if (deltaY > 0) {
-                    this.handleSwipeDown();
-                } else {
-                    this.handleSwipeUp();
-                }
-            }
-
-            startX = startY = null;
+    setupTouchHandler() {
+        this.touchHandler = new TouchHandler(this.container, {
+            isInDayView: () => this.level === "day",
+            onLongPress: (position) => this.openChatInput(position),
+            onSwipeUp: () => this.navigateForward(),
+            onSwipeDown: () => this.navigateBackward(),
+            onSwipeLeft: () => this.zoomOut(),
+            onSwipeRight: () => this.zoomIn()
         });
     }
 
-    handleSwipeUp() {
-        this.navigateForward();
-    }
-
-    handleSwipeDown() {
-        this.navigateBackward();
-    }
-
-    handleSwipeLeft() {
-        this.zoomOut();
-    }
-
-    handleSwipeRight() {
-        this.zoomIn();
-    }
 
     navigateForward() {
         switch (this.level) {
@@ -483,26 +418,6 @@ class CalendarNavigator {
         });
     }
     
-    setupIndexedDB() {
-        const request = indexedDB.open("JournalDB", 1);
-        
-        request.onerror = () => {
-            console.error("Failed to open IndexedDB");
-        };
-        
-        request.onsuccess = (e) => {
-            this.db = e.target.result;
-            this.loadNotes();
-        };
-        
-        request.onupgradeneeded = (e) => {
-            const db = e.target.result;
-            if (!db.objectStoreNames.contains("notes")) {
-                const notesStore = db.createObjectStore("notes", { keyPath: "id" });
-                notesStore.createIndex("date", "date", { unique: false });
-            }
-        };
-    }
     
     setupChatInput() {
         // Create chat input UI
@@ -680,9 +595,14 @@ class CalendarNavigator {
         }
     }
     
-    openChatInput() {
+    openChatInput(position = null) {
         this.chatOverlay.classList.add("active");
         this.chatOverlay.querySelector(".chat-input").focus();
+        
+        // Store the position for note creation
+        if (position) {
+            this.currentLongPressPosition = position;
+        }
     }
     
     closeChatInput() {
@@ -738,8 +658,8 @@ class CalendarNavigator {
             type,
             title,
             shade: this.selectedShade,
-            x: this.longPressPosition.x,
-            y: this.longPressPosition.y,
+            x: this.currentLongPressPosition?.x || window.innerWidth / 2,
+            y: this.currentLongPressPosition?.y || window.innerHeight / 2,
             timestamp: Date.now()
         };
         
@@ -769,22 +689,14 @@ class CalendarNavigator {
     }
     
     saveNote(note) {
-        if (!this.db) return;
-        
-        const transaction = this.db.transaction(["notes"], "readwrite");
-        const store = transaction.objectStore("notes");
-        store.add(note);
+        this.database.saveNote(note).catch(error => {
+            console.error("Failed to save note:", error);
+        });
     }
     
-    loadNotes() {
-        if (!this.db) return;
-        
-        const transaction = this.db.transaction(["notes"], "readonly");
-        const store = transaction.objectStore("notes");
-        const request = store.getAll();
-        
-        request.onsuccess = () => {
-            const notes = request.result;
+    async loadNotes() {
+        try {
+            const notes = await this.database.loadAllNotes();
             this.notes.clear();
             
             notes.forEach(note => {
@@ -795,7 +707,9 @@ class CalendarNavigator {
             });
             
             this.renderNotes();
-        };
+        } catch (error) {
+            console.error("Failed to load notes:", error);
+        }
     }
     
     renderNotes() {
@@ -1186,11 +1100,9 @@ class CalendarNavigator {
         note.read = true;
         
         // Update in IndexedDB
-        if (this.db) {
-            const transaction = this.db.transaction(["notes"], "readwrite");
-            const store = transaction.objectStore("notes");
-            store.put(note);
-        }
+        this.database.updateNote(note).catch(error => {
+            console.error("Failed to update verse:", error);
+        });
         
         // Update visual state
         const verseEl = document.querySelector(".verse-note");
@@ -1378,11 +1290,9 @@ class CalendarNavigator {
         note.y = y;
         
         // Update in IndexedDB
-        if (this.db) {
-            const transaction = this.db.transaction(["notes"], "readwrite");
-            const store = transaction.objectStore("notes");
-            store.put(note);
-        }
+        this.database.updateNote(note).catch(error => {
+            console.error("Failed to update note position:", error);
+        });
     }
     
     deleteNote(note) {
@@ -1397,11 +1307,9 @@ class CalendarNavigator {
         }
         
         // Delete from IndexedDB
-        if (this.db) {
-            const transaction = this.db.transaction(["notes"], "readwrite");
-            const store = transaction.objectStore("notes");
-            store.delete(note.id);
-        }
+        this.database.deleteNote(note.id).catch(error => {
+            console.error("Failed to delete note:", error);
+        });
         
         // Re-render notes
         this.renderNotes();

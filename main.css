@@ -145,40 +145,106 @@ body {
 
 .week-view {
     width: 100%;
-    max-width: 400px;
+    max-width: 500px;
+    padding: 10px;
 }
 
-.week-grid {
+/* Main 7-column grid */
+.week-main-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 10px;
-    margin-bottom: 20px;
+    gap: 12px;
+    width: 100%;
 }
 
+/* Each column contains media above + day square + media below */
+.week-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Media areas above and below day squares */
+.week-media-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-height: 20px; /* Reserve space even when empty */
+    width: 100%;
+}
+
+/* Day squares - bigger and bolder */
 .week-day {
     aspect-ratio: 1;
+    width: 100%;
+    max-width: 64px; /* Bigger than before */
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    font-size: 18px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    font-size: 20px; /* Bigger font */
+    font-weight: 600; /* Bolder */
     border: 2px solid transparent;
     cursor: pointer;
     transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-.week-day:hover {
-    background: rgba(255, 255, 255, 0.08);
+.week-day:active {
+    transform: scale(0.95);
+    background: rgba(255, 255, 255, 0.12);
 }
 
 .week-day.current {
     background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 2px 12px rgba(255,255,255,0.2);
 }
 
-.week-day.other-month {
-    color: #444;
+/* Media squares */
+.week-media-square {
+    width: 100%;
+    aspect-ratio: 1;
+    max-width: 28px; /* Smaller than day squares to create hierarchy */
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.week-media-square:active {
+    transform: scale(0.90);
+}
+
+/* Media square types */
+.week-media-text {
+    background: rgba(255, 215, 0, 0.9); /* Gold */
+    color: #1a1a1a;
+}
+
+.week-media-image {
+    background: rgba(0, 191, 255, 0.9); /* Blue */
+    padding: 2px;
+}
+
+.week-media-audio {
+    background: rgba(255, 107, 107, 0.9); /* Red */
+    color: white;
+}
+
+.week-media-thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 4px;
 }
 
 .month-view {

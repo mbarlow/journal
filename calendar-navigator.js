@@ -169,7 +169,17 @@ class CalendarNavigator {
                 this.uiRenderer.renderDay(this.currentDate, () => this.startRealtimeClock());
                 break;
             case "week":
-                this.uiRenderer.renderWeek(this.currentWeekStart, this.currentDate, (date) => this.jumpToDate(date));
+                const weekCallback = (date) => this.jumpToDate(date);
+                weekCallback.onMediaClick = (noteData) => {
+                    // For now, just jump to the day view - could enhance later
+                    const note = this.findNoteById(noteData.id);
+                    if (note) {
+                        // Jump to day view and show the note
+                        this.jumpToDate(new Date(note.date));
+                        setTimeout(() => this.showNoteDetail(note), 100);
+                    }
+                };
+                this.uiRenderer.renderWeek(this.currentWeekStart, this.currentDate, weekCallback, this.noteManager);
                 break;
             case "month":
                 this.uiRenderer.renderMonth(this.currentMonth, (date) => this.jumpToDate(date), this.noteManager);
@@ -188,6 +198,17 @@ class CalendarNavigator {
         this.currentDate = new Date(date);
         this.level = "day";
         this.render();
+    }
+    
+    findNoteById(noteId) {
+        // Search through all notes to find one with matching ID
+        for (const [dateKey, dayNotes] of this.noteManager.notes) {
+            const note = dayNotes.find(n => n.id === noteId);
+            if (note) {
+                return note;
+            }
+        }
+        return null;
     }
 
     setupFullscreen() {

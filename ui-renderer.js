@@ -49,7 +49,7 @@ class UIRenderer {
         }
     }
 
-    renderWeek(currentWeekStart, currentDate, clickCallback) {
+    renderWeek(currentWeekStart, currentDate, clickCallback, noteManager = null) {
         const monthNames = [
             "Jan",
             "Feb",
@@ -70,21 +70,69 @@ class UIRenderer {
 
         this.headerTitle.textContent = `${currentWeekStart.getFullYear()} ${monthNames[currentWeekStart.getMonth()]}`;
 
-        let weekHtml =
-            '<div class="week-view"><div class="week-grid">';
-
+        // Create single 7-column grid layout
+        let weekHtml = '<div class="week-view"><div class="week-main-grid">';
+        
+        // Create arrays to store media content for each day
+        const weekDays = [];
         for (let i = 0; i < 7; i++) {
             const day = new Date(currentWeekStart);
             day.setDate(day.getDate() + i);
             const isToday = this.isSameDay(day, new Date());
             const isCurrent = this.isSameDay(day, currentDate);
-
-            weekHtml += `<div class="week-day ${isToday || isCurrent ? "current" : ""}" data-date="${day.toISOString()}">
-            ${day.getDate()}
-        </div>`;
+            
+            const dayNotes = noteManager ? noteManager.getNotesForDate(day) : [];
+            weekDays.push({
+                date: day,
+                dayNumber: day.getDate(),
+                isToday,
+                isCurrent,
+                notes: dayNotes
+            });
         }
 
-        weekHtml += "</div></div>";
+        // Generate each column (day + its media)
+        weekDays.forEach(dayData => {
+            weekHtml += '<div class="week-column">';
+            
+            // Media above (text notes)
+            const textNotes = dayData.notes.filter(note => note.type === 'text');
+            weekHtml += '<div class="week-media-area week-media-top">';
+            textNotes.slice(0, 2).forEach(note => {
+                const noteData = JSON.stringify({id: note.id, type: note.type});
+                weekHtml += `<div class="week-media-square week-media-text" data-note='${noteData}'>📝</div>`;
+            });
+            weekHtml += '</div>';
+            
+            // Main day square
+            weekHtml += `<div class="week-day ${dayData.isToday || dayData.isCurrent ? "current" : ""}" data-date="${dayData.date.toISOString()}">
+                ${dayData.dayNumber}
+            </div>`;
+            
+            // Media below (images and audio)
+            const mediaBelow = dayData.notes.filter(note => note.type === 'image' || note.type === 'audio');
+            weekHtml += '<div class="week-media-area week-media-bottom">';
+            mediaBelow.slice(0, 2).forEach(note => {
+                const noteData = JSON.stringify({id: note.id, type: note.type});
+                if (note.type === 'image') {
+                    let thumbnailSrc = '';
+                    try {
+                        const imageData = JSON.parse(note.content);
+                        thumbnailSrc = imageData.thumbnail;
+                    } catch {
+                        thumbnailSrc = note.content;
+                    }
+                    weekHtml += `<div class="week-media-square week-media-image" data-note='${noteData}'><img src="${thumbnailSrc}" alt="Photo" class="week-media-thumbnail"></div>`;
+                } else if (note.type === 'audio') {
+                    weekHtml += `<div class="week-media-square week-media-audio" data-note='${noteData}'>🎵</div>`;
+                }
+            });
+            weekHtml += '</div>';
+            
+            weekHtml += '</div>'; // Close week-column
+        });
+
+        weekHtml += "</div></div>"; // Close week-main-grid and week-view
         this.pageContent.innerHTML = weekHtml;
         
         // Add click handlers for week days
@@ -93,6 +141,19 @@ class UIRenderer {
                 const date = new Date(e.target.dataset.date);
                 if (clickCallback) {
                     clickCallback(date);
+                }
+            });
+        });
+        
+        // Add click handlers for media squares
+        this.pageContent.querySelectorAll('.week-media-square[data-note]').forEach(mediaEl => {
+            mediaEl.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const noteData = JSON.parse(e.currentTarget.dataset.note);
+                // Find the note and trigger appropriate action
+                if (clickCallback && clickCallback.onMediaClick) {
+                    clickCallback.onMediaClick(noteData);
                 }
             });
         });

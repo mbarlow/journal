@@ -12,12 +12,31 @@ class ExportHandler {
         // Get current location when app loads
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
-                position => {
+                async position => {
                     this.currentLocation = {
                         lat: position.coords.latitude,
                         lng: position.coords.longitude,
                         accuracy: position.coords.accuracy
                     };
+                    
+                    // Try to get city/area name via reverse geocoding
+                    try {
+                        const response = await fetch(
+                            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}&zoom=10`
+                        );
+                        const data = await response.json();
+                        if (data && data.address) {
+                            this.currentLocation.city = data.address.city || 
+                                                       data.address.town || 
+                                                       data.address.village || 
+                                                       data.address.suburb || 
+                                                       data.address.county;
+                            this.currentLocation.country = data.address.country;
+                            this.currentLocation.displayName = data.display_name;
+                        }
+                    } catch (err) {
+                        console.log("Could not get location name:", err);
+                    }
                 },
                 error => {
                     console.log("Location access denied or unavailable");
@@ -80,6 +99,7 @@ class ExportHandler {
             ${data.location ? `
             <div class="location-info">
                 <span class="location-icon">📍</span>
+                <span class="location-name">${data.location.city ? `${data.location.city}${data.location.country ? ', ' + data.location.country : ''}` : ''}</span>
                 <span class="coordinates">${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}</span>
             </div>
             ` : ''}
@@ -177,24 +197,66 @@ class ExportHandler {
     generateMapImage(location) {
         if (!location) return null;
         
-        // Using a static map service (you can use Google Static Maps API or similar)
-        // For now, using OpenStreetMap static image
-        const zoom = 14;
-        const width = 300;
-        const height = 200;
+        // For now, let's just use the cute SVG map since external services might be blocked
+        // You can uncomment the external map code later if you want to try it
         
-        // Simple SVG map placeholder with location pin
         return `
         <div class="map-container">
-            <svg class="simple-map" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
-                <rect width="300" height="200" fill="#E8F4FD"/>
-                <circle cx="150" cy="100" r="60" fill="#B8E0FF" opacity="0.3"/>
-                <circle cx="150" cy="100" r="40" fill="#6BB6FF" opacity="0.3"/>
-                <circle cx="150" cy="100" r="20" fill="#4A90E2" opacity="0.3"/>
-                <path d="M150 70 C135 70 125 80 125 95 C125 110 150 130 150 130 S175 110 175 95 C175 80 165 70 150 70Z" fill="#FF4444"/>
-                <circle cx="150" cy="95" r="8" fill="#FFFFFF"/>
-            </svg>
-            <div class="map-coords">${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}</div>
+            <div class="map-wrapper">
+                <svg class="simple-map" viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style="stop-color:#87CEEB;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#E0F6FF;stop-opacity:1" />
+                        </linearGradient>
+                        <linearGradient id="waterGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style="stop-color:#4A90E2;stop-opacity:0.6" />
+                            <stop offset="100%" style="stop-color:#6BB6FF;stop-opacity:0.3" />
+                        </linearGradient>
+                        <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#FFFFFF" stroke-width="0.5" opacity="0.3"/>
+                        </pattern>
+                    </defs>
+                    
+                    <!-- Sky background -->
+                    <rect width="400" height="250" fill="url(#skyGradient)"/>
+                    
+                    <!-- Water/map circles -->
+                    <circle cx="200" cy="125" r="100" fill="url(#waterGradient)"/>
+                    <circle cx="200" cy="125" r="70" fill="#6BB6FF" opacity="0.4"/>
+                    <circle cx="200" cy="125" r="40" fill="#4A90E2" opacity="0.5"/>
+                    
+                    <!-- Grid overlay -->
+                    <rect width="400" height="250" fill="url(#grid)"/>
+                    
+                    <!-- Location pin -->
+                    <g transform="translate(200, 125)">
+                        <!-- Pin shadow -->
+                        <ellipse cx="0" cy="35" rx="15" ry="5" fill="#000000" opacity="0.3"/>
+                        
+                        <!-- Pin body -->
+                        <path d="M0 -30 C-17 -30 -30 -17 -30 0 C-30 25 0 45 0 45 S30 25 30 0 C30 -17 17 -30 0 -30Z" 
+                              fill="#FF4444" stroke="#CC0000" stroke-width="2"/>
+                        
+                        <!-- Pin inner circle -->
+                        <circle r="10" fill="#FFFFFF"/>
+                        <circle r="6" fill="#FF4444"/>
+                    </g>
+                    
+                    <!-- Decorative clouds -->
+                    <g opacity="0.7">
+                        <ellipse cx="80" cy="40" rx="25" ry="12" fill="white"/>
+                        <ellipse cx="100" cy="42" rx="20" ry="10" fill="white"/>
+                        <ellipse cx="320" cy="60" rx="30" ry="14" fill="white"/>
+                        <ellipse cx="340" cy="62" rx="20" ry="10" fill="white"/>
+                    </g>
+                </svg>
+                
+                <div class="map-location-info">
+                    ${location.city ? `<div class="map-city">${location.city}</div>` : ''}
+                    <div class="map-coords">${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}</div>
+                </div>
+            </div>
         </div>
         `;
     }
@@ -252,11 +314,24 @@ class ExportHandler {
         
         .location-info {
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 4px;
             color: #666;
             font-size: 0.9em;
+        }
+        
+        .location-name {
+            font-weight: 600;
+            color: #764ba2;
+            font-size: 1.1em;
+        }
+        
+        .coordinates {
+            font-family: monospace;
+            font-size: 0.8em;
+            opacity: 0.7;
         }
         
         .verse-section {
@@ -384,23 +459,63 @@ class ExportHandler {
         }
         
         .map-container {
-            margin: 20px 0;
+            margin: 30px 0;
             text-align: center;
+        }
+        
+        .map-wrapper {
+            position: relative;
+            display: inline-block;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            background: #F5F5DC;
+        }
+        
+        .map-image {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            display: block;
         }
         
         .simple-map {
             width: 100%;
-            max-width: 300px;
+            max-width: 400px;
             height: auto;
-            border-radius: 10px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            display: block;
         }
         
-        .map-coords {
-            margin-top: 10px;
+        .map-location-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%);
+            color: white;
+            padding: 20px 10px 10px;
+            text-align: center;
+        }
+        
+        .map-city {
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .map-location-info .map-coords {
             font-size: 0.8em;
-            color: #666;
+            opacity: 0.9;
             font-family: monospace;
+            color: white;
+            margin: 0;
+        }
+        
+        .map-fallback {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
         }
         
         .journal-footer {
